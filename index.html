@@ -1607,6 +1607,35 @@ const sb = window.supabase.createClient(SB_URL, SB_KEY);
 let contaEmail = null;
 let BD = null, guardado = {}, tempoGuardar = null;
 let E = {comp:null, erro:"", email:"", pagina:"companhia", sep:"conta", ativ:null, rascunho:null, emp:null, pedido:null};
+let pessoasGuardadas = new Map();
+
+const dOuNulo = v => (v && String(v).trim()) ? String(v).slice(0,10) : null;
+const linhaParaPessoa = l => ({
+  id:l.id, comp:l.comp, nome:l.nome, ramo:l.ramo||"", cargo:l.cargo||"",
+  cargosExtra:l.cargos_extra||[], email:l.email||"", telemovel:l.telemovel||"",
+  nascimento:l.nascimento||"", compromisso:l.compromisso||"",
+  tag:l.tag_teorico||"", tagPratico:l.tag_pratico||"", atestado:l.atestado||"",
+  registo: l.registo ? {ficheiro:"Entregue ao CR", data:l.registo_data||""} : null
+});
+const pessoaParaLinha = p => ({
+  id:p.id, comp:p.comp, nome:p.nome||"", ramo:p.ramo||null, cargo:p.cargo||null,
+  cargos_extra:p.cargosExtra||[], email:p.email||null, telemovel:p.telemovel||null,
+  nascimento:dOuNulo(p.nascimento), compromisso:dOuNulo(p.compromisso),
+  tag_teorico:dOuNulo(p.tag), tag_pratico:dOuNulo(p.tagPratico), atestado:dOuNulo(p.atestado),
+  registo: !!p.registo, registo_data: dOuNulo(p.registo?.data)
+});
+function estadoGravacao(texto, erro){
+  let el = document.getElementById("estadoGravar");
+  if(!el){
+    el = document.createElement("div"); el.id = "estadoGravar";
+    el.style.cssText = "position:fixed;right:16px;bottom:16px;z-index:60;background:#fff;border:1px solid #d7dee8;border-radius:4px;padding:7px 12px;font-size:12px;letter-spacing:.02em;box-shadow:0 2px 10px rgba(14,64,116,.10)";
+    document.body.appendChild(el);
+  }
+  el.textContent = texto;
+  el.style.color = erro ? "#b3261e" : "#5b6472";
+  el.style.borderColor = erro ? "#f2b8b5" : "#d7dee8";
+  el.hidden = !texto;
+}
 
 const tesVazia = () => ({iban:"",titulares:[],comprovativo:null,subsidios:[],faturas:[],orcamento:[],orcamentoFicheiro:null,reembolsos:[],admissoes:[],quotas:[]});
 const bdVazia = () => ({pessoas:[],tesouraria:{},censos:{},atividades:[],inscricoes:{},emprestimos:[],alteracoes:[],prazos:{...PRAZOS},pessoasCR:[]});
@@ -1614,7 +1643,6 @@ const bdVazia = () => ({pessoas:[],tesouraria:{},censos:{},atividades:[],inscric
 function fatia(n){
   if(n === "cr") return {atividades:BD.atividades, prazos:BD.prazos, pessoasCR:BD.pessoasCR};
   return {
-    pessoas: BD.pessoas.filter(p => p.comp === n),
     tesouraria: BD.tesouraria[n],
     censos: BD.censos[n],
     inscricoes: BD.inscricoes[n] || {},
@@ -1633,7 +1661,6 @@ function juntar(n, d){
   BD.tesouraria[n] = d?.tesouraria || tesVazia();
   BD.censos[n] = d?.censos || {historico:{}, atual:null};
   BD.inscricoes[n] = d?.inscricoes || {};
-  BD.pessoas.push(...(d?.pessoas || []));
   BD.emprestimos.push(...(d?.emprestimos || []));
   BD.alteracoes.push(...(d?.alteracoes || []));
 }
@@ -1644,15 +1671,48 @@ async function carregar(nomes){
   const porComp = {};
   (data || []).forEach(l => porComp[l.comp] = l.conteudo);
   nomes.forEach(n => juntar(n, porComp[n]));
+  const comps = nomes.filter(n => n !== "cr");
+  if(comps.length){
+    const r2 = await sb.from("pessoas").select("*").in("comp", comps);
+    if(r2.error) throw new Error("Não consegui ler a patrulha: " + r2.error.message);
+    BD.pessoas = (r2.data || []).map(linhaParaPessoa);
+  }
+  pessoasGuardadas = new Map(BD.pessoas.map(p => [p.id, JSON.stringify(pessoaParaLinha(p))]));
   BD.alteracoes.sort((a,b) => String(b.quando).localeCompare(String(a.quando)));
   nomes.forEach(n => guardado[n] = JSON.stringify(fatia(n)));
 }
 function guardar(){
   clearTimeout(tempoGuardar);
-  tempoGuardar = setTimeout(() => { gravar().catch(e => toast(e.message)) }, 600);
+  tempoGuardar = setTimeout(() => { gravar().catch(e => { estadoGravacao(e.message, true); toast(e.message) }) }, 600);
+}
+async function gravarPessoas(){
+  BD.pessoas.forEach(p => {
+    if(!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(String(p.id))){
+      p.id = crypto.randomUUID();
+    }
+  });
+  const minhas = BD.pessoas.filter(p => E.cr || p.comp === E.comp);
+  const porGravar = [];
+  minhas.forEach(p => {
+    const linha = pessoaParaLinha(p);
+    if(pessoasGuardadas.get(p.id) !== JSON.stringify(linha)) porGravar.push(linha);
+  });
+  const vivas = new Set(minhas.map(p => p.id));
+  const apagar = [...pessoasGuardadas.keys()].filter(id => !vivas.has(id));
+  if(porGravar.length){
+    const {error} = await sb.from("pessoas").upsert(porGravar);
+    if(error) throw new Error("Não consegui gravar a patrulha: " + error.message);
+  }
+  if(apagar.length){
+    const {error} = await sb.from("pessoas").delete().in("id", apagar);
+    if(error) throw new Error("Não consegui remover da patrulha: " + error.message);
+  }
+  pessoasGuardadas = new Map(minhas.map(p => [p.id, JSON.stringify(pessoaParaLinha(p))]));
 }
 async function gravar(){
   if(!BD) return;
+  estadoGravacao("A gravar…");
+  await gravarPessoas();
   const alvos = E.cr ? ["cr", ...COMPANHIAS.map(c => c.id)] : [E.comp];
   for(const n of alvos){
     if(!n) continue;
@@ -1662,6 +1722,8 @@ async function gravar(){
     if(error) throw new Error("Não consegui gravar: " + error.message);
     guardado[n] = texto;
   }
+  const agora = new Date();
+  estadoGravacao("Guardado às " + String(agora.getHours()).padStart(2,"0") + ":" + String(agora.getMinutes()).padStart(2,"0"));
 }
 async function entrarComPasse(email, passe){
   const {data, error} = await sb.auth.signInWithPassword({email, password: passe});
@@ -1924,7 +1986,7 @@ function desenhar(){ $("#app").innerHTML = (E.comp||E.cr) ? vistaApp() : vistaEn
 document.addEventListener("click",e=>{
   const b=e.target.closest("button,[data-acao]"); if(!b) return;
   const d=b.dataset, achar=id=>BD.pessoas.find(p=>p.id===id);
-  if(b.id==="sair"){document.querySelectorAll(".toast").forEach(x=>x.remove());sb.auth.signOut().then(()=>location.replace(location.pathname));return;E={cr:false,comp:null,erro:"",email:"",pagina:"companhia",sep:"conta",ativ:null,rascunho:null,emp:null,pedido:null};fechar();try{history.replaceState(null,"",location.pathname+location.search)}catch(_){location.hash=""}desenhar();return}
+  if(b.id==="sair"){document.querySelectorAll(".toast").forEach(x=>x.remove());estadoGravacao("");sb.auth.signOut().then(()=>location.replace(location.pathname));return;E={cr:false,comp:null,erro:"",email:"",pagina:"companhia",sep:"conta",ativ:null,rascunho:null,emp:null,pedido:null};fechar();try{history.replaceState(null,"",location.pathname+location.search)}catch(_){location.hash=""}desenhar();return}
   if(b.id==="adicionar"){janelaFicha(null);return}
   if(b.id==="verPendentes"){janelaPendentes();return}
   if(d.editar){janelaFicha(achar(d.editar));return}
