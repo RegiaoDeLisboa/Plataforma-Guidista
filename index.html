@@ -1663,12 +1663,14 @@ async function gravar(){
     guardado[n] = texto;
   }
 }
-async function pedirLink(email){
-  const {error} = await sb.auth.signInWithOtp({
-    email,
-    options: {emailRedirectTo: location.origin + location.pathname}
-  });
-  if(error) throw new Error(error.message);
+async function entrarComPasse(email, passe){
+  const {data, error} = await sb.auth.signInWithPassword({email, password: passe});
+  if(error){
+    if(/invalid login/i.test(error.message)) throw new Error("Email ou palavra-passe incorretos.");
+    if(/confirm/i.test(error.message)) throw new Error("Esta conta ainda não foi confirmada. Avisa o Comissariado Regional.");
+    throw new Error(error.message);
+  }
+  return data.user.email;
 }
 async function entrarComConta(){
   const email = String(contaEmail || "").toLowerCase();
@@ -1754,26 +1756,27 @@ function vistaEntrada(){
     <section class="lado">
       <form id="formEntrada" novalidate>
         ${marca(LOGO_AZUL)}
-        <h2>Entrar</h2><p>Escreve o email da tua companhia. Recebes no Outlook um link para entrar.</p>
+        <h2>Entrar</h2><p>Usa o email da tua companhia e a palavra-passe que o Comissariado Regional vos deu.</p>
         ${E.erro?`<div class="erro" role="alert">${esc(E.erro)}</div>`:""}
-        ${E.enviado?`<div class="aviso" role="status"><span><b>Link enviado para ${esc(E.enviado)}.</b> Abre o email no Outlook e carrega em entrar. O link é válido durante uma hora.</span></div>`:""}
         ${E.carregando?`<p class="sub">${esc(E.carregando)}…</p>`:`
         <label for="email">Email<input type="email" id="email" autocomplete="username" placeholder="companhia@guiasdeportugal.org" value="${esc(E.email)}"></label>
-        <button class="btn primario" type="submit">Receber link de entrada</button>`}
-        <p class="sub">Sem palavras-passe. Só entram contas @guiasdeportugal.org.</p>
+        <label for="senha">Palavra-passe<input type="password" id="senha" autocomplete="current-password"></label>
+        <button class="btn primario" type="submit">Entrar</button>`}
+        <p class="sub">Só entram contas @guiasdeportugal.org. Se te esqueceste da palavra-passe, pede uma nova ao CR.</p>
       </form>
     </section></div>`;
 }
 async function entrar(){
   const email = ($("#email")?.value || "").trim().toLowerCase();
-  if(!email){ E.erro = "Escreve o email da companhia."; desenhar(); return }
+  const passe = $("#senha")?.value || "";
+  if(!email || !passe){ E.erro = "Preenche o email e a palavra-passe."; E.email = email; desenhar(); return }
   if(!email.endsWith("@guiasdeportugal.org")){
-    E.erro = "A plataforma só aceita emails @guiasdeportugal.org."; desenhar(); return;
+    E.erro = "A plataforma só aceita emails @guiasdeportugal.org."; E.email = email; desenhar(); return;
   }
-  E.erro = ""; E.email = email; E.carregando = "A enviar o link"; desenhar();
+  E.erro = ""; E.email = email; E.carregando = "A entrar"; desenhar();
   try{
-    await pedirLink(email);
-    E.carregando = null; E.enviado = email; desenhar();
+    contaEmail = await entrarComPasse(email, passe);
+    await entrarComConta();
   }catch(e){
     E.carregando = null; E.erro = e.message; desenhar();
   }
