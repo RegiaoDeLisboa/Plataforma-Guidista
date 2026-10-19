@@ -477,7 +477,7 @@ a.ativ-cartao{text-decoration:none;color:inherit;grid-template-columns:auto minm
 .cargo-extra{display:grid;grid-template-columns:1fr auto;gap:8px;align-items:center}
 </style>
 
-<script src="https://cdn.jsdelivr.net/npm/@azure/msal-browser@3/lib/msal-browser.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <div id="app"></div>
 <div id="camada"></div>
 
@@ -1599,128 +1599,99 @@ function exemplo(){
   const censos=juntarNomes(exemploCensos());
   return {pessoas, tesouraria:exemploTesouraria(pessoas), censos, atividades:exemploAtividades(), inscricoes:exemploInscricoes(censos,pessoas), emprestimos:exemploEmprestimos(), alteracoes:exemploAlteracoes(), pessoasCR:exemploPessoasCR()};
 }
-/* ================= Microsoft 365 ================= */
-const MS={cliente:"c41b718f-ef41-4844-a91b-f47e85b002a5",
-  inquilino:"429a099c-f086-46cf-8928-bed5d52dd4ae",
-  ambitos:["User.Read","Files.ReadWrite.All","Sites.ReadWrite.All"],
-  site:"guiasdeportugal.sharepoint.com:/sites/companhiaslisboa",
-  biblioteca:"Plataforma", pasta:"Dados"};
-let msalApp=null, contaMS=null, idBiblioteca=null;
-let BD=null, guardado={}, tempoGuardar=null;
+/* ================= Base de dados (Supabase) ================= */
+const SB_URL = "https://scdvsgybalelalefthms.supabase.co";
+const SB_KEY = "sb_publishable_o4nTsyZwpW5G7HfszIjruQ_O9cgIQa-";
+const sb = window.supabase.createClient(SB_URL, SB_KEY);
 
-async function iniciarMS(){
-  msalApp=new msal.PublicClientApplication({
-    auth:{clientId:MS.cliente,authority:"https://login.microsoftonline.com/"+MS.inquilino,redirectUri:location.origin+location.pathname},
-    cache:{cacheLocation:"localStorage"}});
-  await msalApp.initialize();
-  const r=await msalApp.handleRedirectPromise();
-  contaMS=r?.account||msalApp.getAllAccounts()[0]||null;
-  if(contaMS) msalApp.setActiveAccount(contaMS);
-  return contaMS;
-}
-async function tokenMS(){
-  try{ const r=await msalApp.acquireTokenSilent({scopes:MS.ambitos,account:contaMS}); return r.accessToken }
-  catch(e){ await msalApp.acquireTokenRedirect({scopes:MS.ambitos}); throw e }
-}
-async function graph(caminho,opcoes={}){
-  const t=await tokenMS();
-  const r=await fetch("https://graph.microsoft.com/v1.0"+caminho,{...opcoes,headers:{Authorization:"Bearer "+t,...(opcoes.headers||{})}});
-  if(r.status===404) return null;
-  if(!r.ok) throw new Error("Microsoft 365 respondeu "+r.status);
-  return r.status===204?null:r.json();
-}
-async function acharBiblioteca(){
-  if(idBiblioteca) return idBiblioteca;
-  const s=await graph("/sites/"+MS.site);
-  if(!s) throw new Error("Não encontrei o site das companhias.");
-  const ds=await graph("/sites/"+s.id+"/drives");
-  const d=(ds.value||[]).find(x=>x.name===MS.biblioteca);
-  if(!d) throw new Error("Não encontrei a biblioteca "+MS.biblioteca+" no site das companhias.");
-  return idBiblioteca=d.id;
-}
-const urlFicheiro=n=>"https://graph.microsoft.com/v1.0/drives/"+idBiblioteca+"/root:/"+MS.pasta+"/"+n+".json:/content";
-async function lerFicheiro(n){
-  const t=await tokenMS();
-  const r=await fetch(urlFicheiro(n),{headers:{Authorization:"Bearer "+t}});
-  if(r.status===404) return null;
-  if(!r.ok) throw new Error("Não consegui ler os dados de "+n+" ("+r.status+").");
-  return r.json();
-}
-async function escreverFicheiro(n,dados){
-  const t=await tokenMS();
-  const r=await fetch(urlFicheiro(n),{method:"PUT",headers:{Authorization:"Bearer "+t,"Content-Type":"application/json"},body:JSON.stringify(dados)});
-  if(!r.ok) throw new Error("Não consegui gravar os dados de "+n+" ("+r.status+").");
-}
+let contaEmail = null;
+let BD = null, guardado = {}, tempoGuardar = null;
 
-const tesVazia=()=>({iban:"",titulares:[],comprovativo:null,subsidios:[],faturas:[],orcamento:[],orcamentoFicheiro:null,reembolsos:[],admissoes:[],quotas:[]});
-const bdVazia=()=>({pessoas:[],tesouraria:{},censos:{},atividades:[],inscricoes:{},emprestimos:[],alteracoes:[],prazos:{...PRAZOS},pessoasCR:[]});
+const tesVazia = () => ({iban:"",titulares:[],comprovativo:null,subsidios:[],faturas:[],orcamento:[],orcamentoFicheiro:null,reembolsos:[],admissoes:[],quotas:[]});
+const bdVazia = () => ({pessoas:[],tesouraria:{},censos:{},atividades:[],inscricoes:{},emprestimos:[],alteracoes:[],prazos:{...PRAZOS},pessoasCR:[]});
+
 function fatia(n){
-  if(n==="cr") return {atividades:BD.atividades,prazos:BD.prazos,pessoasCR:BD.pessoasCR};
-  return {pessoas:BD.pessoas.filter(p=>p.comp===n),tesouraria:BD.tesouraria[n],censos:BD.censos[n],
-    inscricoes:BD.inscricoes[n]||{},emprestimos:BD.emprestimos.filter(e=>e.comp===n),
-    alteracoes:BD.alteracoes.filter(a=>a.comp===n)};
+  if(n === "cr") return {atividades:BD.atividades, prazos:BD.prazos, pessoasCR:BD.pessoasCR};
+  return {
+    pessoas: BD.pessoas.filter(p => p.comp === n),
+    tesouraria: BD.tesouraria[n],
+    censos: BD.censos[n],
+    inscricoes: BD.inscricoes[n] || {},
+    emprestimos: BD.emprestimos.filter(e => e.comp === n),
+    alteracoes: BD.alteracoes.filter(a => a.comp === n)
+  };
 }
-function juntar(n,d){
-  if(n==="cr"){
-    BD.atividades=d?.atividades||[]; BD.pessoasCR=d?.pessoasCR||[];
-    BD.prazos={...PRAZOS,...(d?.prazos||{})}; Object.assign(PRAZOS,BD.prazos); return;
+function juntar(n, d){
+  if(n === "cr"){
+    BD.atividades = d?.atividades || [];
+    BD.pessoasCR = d?.pessoasCR || [];
+    BD.prazos = {...PRAZOS, ...(d?.prazos || {})};
+    Object.assign(PRAZOS, BD.prazos);
+    return;
   }
-  BD.tesouraria[n]=d?.tesouraria||tesVazia();
-  BD.censos[n]=d?.censos||{historico:{},atual:null};
-  BD.inscricoes[n]=d?.inscricoes||{};
-  BD.pessoas.push(...(d?.pessoas||[]));
-  BD.emprestimos.push(...(d?.emprestimos||[]));
-  BD.alteracoes.push(...(d?.alteracoes||[]));
+  BD.tesouraria[n] = d?.tesouraria || tesVazia();
+  BD.censos[n] = d?.censos || {historico:{}, atual:null};
+  BD.inscricoes[n] = d?.inscricoes || {};
+  BD.pessoas.push(...(d?.pessoas || []));
+  BD.emprestimos.push(...(d?.emprestimos || []));
+  BD.alteracoes.push(...(d?.alteracoes || []));
 }
 async function carregar(nomes){
-  BD=bdVazia();
-  const dados=await Promise.all(nomes.map(n=>lerFicheiro(n)));
-  nomes.forEach((n,i)=>juntar(n,dados[i]));
-  BD.alteracoes.sort((a,b)=>String(b.quando).localeCompare(String(a.quando)));
-  nomes.forEach(n=>guardado[n]=JSON.stringify(fatia(n)));
+  BD = bdVazia();
+  const {data, error} = await sb.from("dados").select("comp, conteudo").in("comp", nomes);
+  if(error) throw new Error("Não consegui ler os dados: " + error.message);
+  const porComp = {};
+  (data || []).forEach(l => porComp[l.comp] = l.conteudo);
+  nomes.forEach(n => juntar(n, porComp[n]));
+  BD.alteracoes.sort((a,b) => String(b.quando).localeCompare(String(a.quando)));
+  nomes.forEach(n => guardado[n] = JSON.stringify(fatia(n)));
 }
 function guardar(){
   clearTimeout(tempoGuardar);
-  tempoGuardar=setTimeout(()=>{gravar().catch(e=>toast(e.message))},600);
+  tempoGuardar = setTimeout(() => { gravar().catch(e => toast(e.message)) }, 600);
 }
 async function gravar(){
-  if(!BD||!idBiblioteca) return;
-  const alvos=E.cr?["cr",...COMPANHIAS.map(c=>c.id)]:[E.comp];
+  if(!BD) return;
+  const alvos = E.cr ? ["cr", ...COMPANHIAS.map(c => c.id)] : [E.comp];
   for(const n of alvos){
     if(!n) continue;
-    const texto=JSON.stringify(fatia(n));
-    if(texto===guardado[n]) continue;
-    await escreverFicheiro(n,JSON.parse(texto));
-    guardado[n]=texto;
+    const texto = JSON.stringify(fatia(n));
+    if(texto === guardado[n]) continue;
+    const {error} = await sb.from("dados").update({conteudo: JSON.parse(texto)}).eq("comp", n);
+    if(error) throw new Error("Não consegui gravar: " + error.message);
+    guardado[n] = texto;
   }
+}
+async function pedirLink(email){
+  const {error} = await sb.auth.signInWithOtp({
+    email,
+    options: {emailRedirectTo: location.origin + location.pathname}
+  });
+  if(error) throw new Error(error.message);
 }
 async function entrarComConta(){
-  const email=String(contaMS.username||"").toLowerCase();
-  E.carregando="A carregar os dados da drive";
-  E.erro=""; desenhar();
+  const email = String(contaEmail || "").toLowerCase();
+  E.carregando = "A carregar os dados da companhia";
+  E.erro = ""; desenhar();
   try{
-    await acharBiblioteca();
-    if(email===CR_CONTA.email){
-      await carregar(["cr",...COMPANHIAS.map(c=>c.id)]);
-      E={cr:true,comp:null,crVista:"pedidos",erro:"",email:"",pagina:"companhia",sep:"conta",ativ:null,rascunho:null,emp:null,pedido:null};
+    if(email === CR_CONTA.email){
+      await carregar(["cr", ...COMPANHIAS.map(c => c.id)]);
+      E = {cr:true, comp:null, crVista:"pedidos", erro:"", email:"", pagina:"companhia", sep:"conta", ativ:null, rascunho:null, emp:null, pedido:null};
       irPara("#/cr/pedidos"); return;
     }
-    const c=COMPANHIAS.find(x=>x.email===email);
+    const c = COMPANHIAS.find(x => x.email === email);
     if(!c){
-      E.carregando=null;
-      E.erro="A conta "+email+" não está ligada a nenhuma companhia. Entra com o email da companhia ou com o email da região.";
+      E.carregando = null;
+      E.erro = "A conta " + email + " não está ligada a nenhuma companhia.";
       desenhar(); return;
     }
-    await carregar(["cr",c.id]);
-    E={comp:c.id,erro:"",email:"",pagina:"companhia",sep:"conta",ativ:null,rascunho:null,emp:null,pedido:null};
-    E.mostrarPendentes=true; irPara("#/companhia");
+    await carregar(["cr", c.id]);
+    E = {comp:c.id, erro:"", email:"", pagina:"companhia", sep:"conta", ativ:null, rascunho:null, emp:null, pedido:null};
+    E.mostrarPendentes = true; irPara("#/companhia");
   }catch(err){
-    E.carregando=null; E.erro=err.message; desenhar();
+    E.carregando = null; E.erro = err.message; desenhar();
   }
 }
-
-let E={comp:null,erro:"",email:"",pagina:"companhia",sep:"conta",ativ:null,rascunho:null,emp:null,pedido:null};
-
 /* ---------- auxiliares ---------- */
 const $=s=>document.querySelector(s);
 const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
@@ -1782,14 +1753,30 @@ function vistaEntrada(){
     <section class="lado">
       <form id="formEntrada" novalidate>
         ${marca(LOGO_AZUL)}
-        <h2>Entrar</h2><p>Entra com o email da tua companhia ou da região, o mesmo que usas no Outlook.</p>
+        <h2>Entrar</h2><p>Escreve o email da tua companhia. Recebes no Outlook um link para entrar.</p>
         ${E.erro?`<div class="erro" role="alert">${esc(E.erro)}</div>`:""}
-        ${E.carregando?`<p class="sub">${esc(E.carregando)}…</p>`:`<button class="btn primario" type="button" id="entrarMS">Entrar com a conta Microsoft</button>`}
-        <p class="sub">A plataforma não guarda palavras-passe. A entrada é feita pela Microsoft, com a conta @guiasdeportugal.org.</p>
+        ${E.enviado?`<div class="aviso" role="status"><span><b>Link enviado para ${esc(E.enviado)}.</b> Abre o email no Outlook e carrega em entrar. O link é válido durante uma hora.</span></div>`:""}
+        ${E.carregando?`<p class="sub">${esc(E.carregando)}…</p>`:`
+        <label for="email">Email<input type="email" id="email" autocomplete="username" placeholder="companhia@guiasdeportugal.org" value="${esc(E.email)}"></label>
+        <button class="btn primario" type="submit">Receber link de entrada</button>`}
+        <p class="sub">Sem palavras-passe. Só entram contas @guiasdeportugal.org.</p>
       </form>
     </section></div>`;
 }
-function entrar(){ if(msalApp) msalApp.loginRedirect({scopes:MS.ambitos}); }
+async function entrar(){
+  const email = ($("#email")?.value || "").trim().toLowerCase();
+  if(!email){ E.erro = "Escreve o email da companhia."; desenhar(); return }
+  if(!email.endsWith("@guiasdeportugal.org")){
+    E.erro = "A plataforma só aceita emails @guiasdeportugal.org."; desenhar(); return;
+  }
+  E.erro = ""; E.email = email; E.carregando = "A enviar o link"; desenhar();
+  try{
+    await pedirLink(email);
+    E.carregando = null; E.enviado = email; desenhar();
+  }catch(e){
+    E.carregando = null; E.erro = e.message; desenhar();
+  }
+}
 
 /* ---------- Patrulha ---------- */
 function datasPessoa(p){
@@ -1933,8 +1920,7 @@ function desenhar(){ $("#app").innerHTML = (E.comp||E.cr) ? vistaApp() : vistaEn
 document.addEventListener("click",e=>{
   const b=e.target.closest("button,[data-acao]"); if(!b) return;
   const d=b.dataset, achar=id=>BD.pessoas.find(p=>p.id===id);
-  if(b.id==="entrarMS"){entrar();return}
-  if(b.id==="sair"){document.querySelectorAll(".toast").forEach(x=>x.remove());if(msalApp&&contaMS){msalApp.logoutRedirect({account:contaMS});return}E={cr:false,comp:null,erro:"",email:"",pagina:"companhia",sep:"conta",ativ:null,rascunho:null,emp:null,pedido:null};fechar();try{history.replaceState(null,"",location.pathname+location.search)}catch(_){location.hash=""}desenhar();return}
+  if(b.id==="sair"){document.querySelectorAll(".toast").forEach(x=>x.remove());sb.auth.signOut().then(()=>location.replace(location.pathname));return;E={cr:false,comp:null,erro:"",email:"",pagina:"companhia",sep:"conta",ativ:null,rascunho:null,emp:null,pedido:null};fechar();try{history.replaceState(null,"",location.pathname+location.search)}catch(_){location.hash=""}desenhar();return}
   if(b.id==="adicionar"){janelaFicha(null);return}
   if(b.id==="verPendentes"){janelaPendentes();return}
   if(d.editar){janelaFicha(achar(d.editar));return}
@@ -1997,8 +1983,18 @@ document.addEventListener("keydown",e=>{if(e.key==="Escape")fechar(); if(e.key==
 desenhar();
 (async function arranque(){
   try{
-    await iniciarMS();
-    if(contaMS) await entrarComConta();
-  }catch(e){ E.erro="Não consegui ligar ao Microsoft 365: "+e.message; desenhar(); }
+    const {data:{session}} = await sb.auth.getSession();
+    if(session?.user?.email){
+      contaEmail = session.user.email;
+      try{ history.replaceState(null, "", location.pathname) }catch(_){}
+      await entrarComConta();
+    }
+    sb.auth.onAuthStateChange((evento, sessao) => {
+      if(evento === "SIGNED_IN" && sessao?.user?.email && !E.comp && !E.cr){
+        contaEmail = sessao.user.email;
+        entrarComConta();
+      }
+    });
+  }catch(e){ E.erro = "Não consegui ligar à base de dados: " + e.message; desenhar(); }
 })();
 </script>
