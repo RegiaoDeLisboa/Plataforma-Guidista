@@ -1606,6 +1606,7 @@ const sb = window.supabase.createClient(SB_URL, SB_KEY);
 
 let contaEmail = null;
 let BD = null, guardado = {}, tempoGuardar = null;
+let E = {comp:null, erro:"", email:"", pagina:"companhia", sep:"conta", ativ:null, rascunho:null, emp:null, pedido:null};
 
 const tesVazia = () => ({iban:"",titulares:[],comprovativo:null,subsidios:[],faturas:[],orcamento:[],orcamentoFicheiro:null,reembolsos:[],admissoes:[],quotas:[]});
 const bdVazia = () => ({pessoas:[],tesouraria:{},censos:{},atividades:[],inscricoes:{},emprestimos:[],alteracoes:[],prazos:{...PRAZOS},pessoasCR:[]});
