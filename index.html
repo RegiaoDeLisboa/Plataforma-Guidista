@@ -495,8 +495,8 @@ const EMAIL_COMP={cascais:"1cascais",parede:"1parede",carcavelos:"1carcavelos",s
 const COMPANHIAS=[["cascais","Cascais"],["parede","Parede"],["carcavelos","Carcavelos"],["sdr","São Domingos de Rana"],["memmartins","Mem Martins"],["1oeiras","1.ª Oeiras"],["2oeiras","2.ª Oeiras"],["2lisboa","2.ª Lisboa"],["4lisboa","4.ª Lisboa"],["6lisboa","6.ª Lisboa"],["13lisboa","13.ª Lisboa"],["odivelas","Odivelas"]]
   .map(([id,nome])=>({id,nome,email:EMAIL_COMP[id]+"@guiasdeportugal.org"}));
 const RAMOS={"Avezinha":"var(--avezinha)","Aventura":"var(--aventura)","Caravela":"var(--caravela)","Moinho":"var(--moinho)"};
-const CARGOS=["Chefe de Companhia","Subchefe de Companhia","Secretária","Tesoureira","Relações Públicas","Enfermeira","Guarda-Material","Depósito","Animadora"];
-const CARGOS_CR=["Comissária Regional","Comissária Regional Adjunta","Delegada Ramo Avezinha","Delegada Ramo Aventura","Delegada Ramo Caravela","Delegada Ramo Moinho","Secretária","Tesoureira"];
+const CARGOS=["Chefe de Companhia","Subchefe de Companhia","Secretária","Secretária - Adjunta","Tesoureira","Tesoureira - Adjunta","Relações Públicas","Redes Sociais","Enfermeira","Guarda-Material","Depósito","Animadora","Bibliotecária","Fotógrafa","Sustentabilidade","Sede","Responsável Ramo Moinho"];
+const CARGOS_CR=["Comissária Regional","Comissária Regional Adjunta","Delegada Ramo Avezinha","Delegada Ramo Aventura","Delegada Ramo Caravela","Delegada Ramo Moinho","Delegada da Gestão","Delegada do Crescimento","Secretária","Tesoureira"];
 const OBRIGATORIOS=["nome","cargo","email","telemovel","nascimento"];
 const NOMES_CAMPO={nome:"nome",ramo:"ramo",cargo:"cargo",email:"email",telemovel:"telemóvel",nascimento:"data de nascimento"};
 /* Prazos definidos pelo CR (na versão final vêm do Excel da região). As companhias não os veem. */
@@ -1114,18 +1114,10 @@ function tesAtividades(){
 
 /* ================= EMPRÉSTIMOS ================= */
 const MATERIAL=[
-  {id:"m-tenda6",nome:"Tenda de patrulha",detalhe:"6 pessoas",categoria:"Acampamento",total:8},
-  {id:"m-tenda12",nome:"Tenda grande",detalhe:"12 pessoas",categoria:"Acampamento",total:3},
-  {id:"m-toldo",nome:"Toldo",detalhe:"6 × 4 m, com estacas",categoria:"Acampamento",total:6},
-  {id:"m-fogao",nome:"Fogão a gás",detalhe:"2 bicos, sem garrafa",categoria:"Cozinha",total:4},
-  {id:"m-panela",nome:"Panela grande",detalhe:"50 litros",categoria:"Cozinha",total:4},
-  {id:"m-mesa",nome:"Mesa desmontável",detalhe:"180 × 75 cm",categoria:"Mobiliário",total:10},
-  {id:"m-banco",nome:"Banco corrido",detalhe:"Para mesa desmontável",categoria:"Mobiliário",total:16},
-  {id:"m-socorro",nome:"Mala de primeiros socorros",detalhe:"Completa",categoria:"Segurança",total:5},
-  {id:"m-bussola",nome:"Bússola",detalhe:"De placa",categoria:"Orientação",total:20},
-  {id:"m-pioneir",nome:"Kit de pioneirismo",detalhe:"Troncos e cordas",categoria:"Acampamento",total:2},
-  {id:"m-projetor",nome:"Projetor",detalhe:"Com cabo HDMI",categoria:"Equipamento",total:1},
-  {id:"m-som",nome:"Coluna de som",detalhe:"Com microfone",categoria:"Equipamento",total:2}
+  {id:"m-walkies",nome:"Conjunto de walkies",detalhe:"6 aparelhos, emprestados em conjunto",categoria:"Comunicação",total:1},
+  {id:"m-projetor",nome:"Projetor",detalhe:"Com cabo HDMI",categoria:"Som e imagem",total:1},
+  {id:"m-coluna",nome:"Coluna",detalhe:"Pede-se em separado do micro",categoria:"Som e imagem",total:1},
+  {id:"m-micro",nome:"Micro",detalhe:"Pede-se em separado da coluna",categoria:"Som e imagem",total:1}
 ];
 const EST_EMP={pendente:["analise","À espera de aprovação"],aprovado:["ok","Aprovado"],recusado:["devolvida","Recusado"],levantado:["analise","Levantado"],devolvido:["neutro","Devolvido"],cancelado:["neutro","Cancelado"]};
 function exemploEmprestimos(){
@@ -1608,20 +1600,25 @@ let contaEmail = null;
 let BD = null, guardado = {}, tempoGuardar = null;
 let E = {comp:null, erro:"", email:"", pagina:"companhia", sep:"conta", ativ:null, rascunho:null, emp:null, pedido:null};
 let pessoasGuardadas = new Map();
+let crGuardadas = new Map();
+const crParaLinha = p => ({
+  id:p.id, nome:p.nome||"", cargo:p.cargo||null, cargos_extra:p.cargosExtra||[],
+  ramo:p.ramo||null, email:p.email||null, telemovel:p.telemovel||null
+});
 
 const dOuNulo = v => (v && String(v).trim()) ? String(v).slice(0,10) : null;
 const linhaParaPessoa = l => ({
   id:l.id, comp:l.comp, nome:l.nome, ramo:l.ramo||"", cargo:l.cargo||"",
   cargosExtra:l.cargos_extra||[], email:l.email||"", telemovel:l.telemovel||"",
   nascimento:l.nascimento||"", compromisso:l.compromisso||"",
-  tag:l.tag_teorico||"", tagPratico:l.tag_pratico||"", atestado:l.atestado||"",
+  tag:l.tag_teorico||"", tagPratico:l.tag_pratico||"", tag2:l.tag2||"", foe:l.foe||"", socorros:l.socorros||"",
   registo: l.registo ? {ficheiro:"Entregue ao CR", data:l.registo_data||""} : null
 });
 const pessoaParaLinha = p => ({
   id:p.id, comp:p.comp, nome:p.nome||"", ramo:p.ramo||null, cargo:p.cargo||null,
   cargos_extra:p.cargosExtra||[], email:p.email||null, telemovel:p.telemovel||null,
   nascimento:dOuNulo(p.nascimento), compromisso:dOuNulo(p.compromisso),
-  tag_teorico:dOuNulo(p.tag), tag_pratico:dOuNulo(p.tagPratico), atestado:dOuNulo(p.atestado),
+  tag_teorico:dOuNulo(p.tag), tag_pratico:dOuNulo(p.tagPratico), tag2:dOuNulo(p.tag2), foe:dOuNulo(p.foe), socorros:dOuNulo(p.socorros),
   registo: !!p.registo, registo_data: dOuNulo(p.registo?.data)
 });
 function estadoGravacao(texto, erro){
@@ -1641,7 +1638,7 @@ const tesVazia = () => ({iban:"",titulares:[],comprovativo:null,subsidios:[],fat
 const bdVazia = () => ({pessoas:[],tesouraria:{},censos:{},atividades:[],inscricoes:{},emprestimos:[],alteracoes:[],prazos:{...PRAZOS},pessoasCR:[]});
 
 function fatia(n){
-  if(n === "cr") return {atividades:BD.atividades, prazos:BD.prazos, pessoasCR:BD.pessoasCR};
+  if(n === "cr") return {atividades:BD.atividades, prazos:BD.prazos};
   return {
     tesouraria: BD.tesouraria[n],
     censos: BD.censos[n],
@@ -1653,7 +1650,6 @@ function fatia(n){
 function juntar(n, d){
   if(n === "cr"){
     BD.atividades = d?.atividades || [];
-    BD.pessoasCR = d?.pessoasCR || [];
     BD.prazos = {...PRAZOS, ...(d?.prazos || {})};
     Object.assign(PRAZOS, BD.prazos);
     return;
@@ -1678,6 +1674,13 @@ async function carregar(nomes){
     BD.pessoas = (r2.data || []).map(linhaParaPessoa);
   }
   pessoasGuardadas = new Map(BD.pessoas.map(p => [p.id, JSON.stringify(pessoaParaLinha(p))]));
+  const rCR = await sb.from("pessoas_cr").select("*");
+  if(rCR.error) throw new Error("Não consegui ler os contactos do CR: " + rCR.error.message);
+  BD.pessoasCR = (rCR.data || []).map(l => ({
+    id:l.id, nome:l.nome, cargo:l.cargo||"", cargosExtra:l.cargos_extra||[],
+    ramo:l.ramo||"", email:l.email||"", telemovel:l.telemovel||""
+  }));
+  crGuardadas = new Map(BD.pessoasCR.map(p => [p.id, JSON.stringify(crParaLinha(p))]));
   BD.alteracoes.sort((a,b) => String(b.quando).localeCompare(String(a.quando)));
   nomes.forEach(n => guardado[n] = JSON.stringify(fatia(n)));
 }
@@ -1709,10 +1712,33 @@ async function gravarPessoas(){
   }
   pessoasGuardadas = new Map(minhas.map(p => [p.id, JSON.stringify(pessoaParaLinha(p))]));
 }
+async function gravarCR(){
+  if(!E.cr) return;
+  BD.pessoasCR.forEach(p => {
+    if(!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(String(p.id))) p.id = crypto.randomUUID();
+  });
+  const porGravar = [];
+  BD.pessoasCR.forEach(p => {
+    const linha = crParaLinha(p);
+    if(crGuardadas.get(p.id) !== JSON.stringify(linha)) porGravar.push(linha);
+  });
+  const vivas = new Set(BD.pessoasCR.map(p => p.id));
+  const apagar = [...crGuardadas.keys()].filter(id => !vivas.has(id));
+  if(porGravar.length){
+    const {error} = await sb.from("pessoas_cr").upsert(porGravar);
+    if(error) throw new Error("Não consegui gravar os contactos do CR: " + error.message);
+  }
+  if(apagar.length){
+    const {error} = await sb.from("pessoas_cr").delete().in("id", apagar);
+    if(error) throw new Error("Não consegui remover do CR: " + error.message);
+  }
+  crGuardadas = new Map(BD.pessoasCR.map(p => [p.id, JSON.stringify(crParaLinha(p))]));
+}
 async function gravar(){
   if(!BD) return;
   estadoGravacao("A gravar…");
   await gravarPessoas();
+  await gravarCR();
   const alvos = E.cr ? ["cr", ...COMPANHIAS.map(c => c.id)] : [E.comp];
   for(const n of alvos){
     if(!n) continue;
@@ -1784,7 +1810,6 @@ function pendentes(id){
   if(t) t.faturas.filter(f=>f.estado==="devolvida").forEach(f=>out.push({area:"tesouraria",sep:"faturas",tipo:"Fatura devolvida",t:f.ficheiro,d:f.motivo}));
   const s=BD.censos[id];
   if(t){const pp=t.admissoes.filter(a=>a.estado==="por_pagar"); if(pp.length) out.push({area:"tesouraria",sep:"admissoes",tipo:"Propostas de admissão",t:pp.length+(pp.length===1?" proposta por pagar":" propostas por pagar"),d:"Façam a transferência e enviem o comprovativo."});}
-  ps.filter(p=>p.atestado&&passou(p.atestado)).forEach(p=>out.push({area:"patrulha",tipo:"Atestado médico",t:p.nome,d:"O atestado caducou a "+fmt(p.atestado)+"."}));
   const ins=BD.inscricoes?.[id]||{};
   (BD.atividades||[]).forEach(a=>{const i=ins[a.id];
     if(!i && !passou(a.prazo) && diasAte(a.prazo)<=14) out.push({area:"atividades",tipo:"Atividade",t:a.nome,d:"Confirmem quem vai até "+fmt(a.prazo)+"."});
@@ -1847,8 +1872,12 @@ async function entrar(){
 /* ---------- Patrulha ---------- */
 function datasPessoa(p){
   const l=(r,v,cls="")=>`<span class="${cls}"><small>${r}</small>${v||"—"}</span>`;
-  const cad=p.atestado&&passou(p.atestado);
-  return l("Compromisso",p.compromisso&&fmt(p.compromisso))+l("TAG",p.tag&&fmt(p.tag))+l("Atestado",p.atestado&&((cad?"caducou ":"até ")+fmt(p.atestado)),cad?"caducado":"");
+  return l("Compromisso",p.compromisso&&fmt(p.compromisso))
+       + l("TAG teórico",p.tag&&fmt(p.tag))
+       + l("TAG prático",p.tagPratico&&fmt(p.tagPratico))
+       + l("TAG 2",p.tag2&&fmt(p.tag2))
+       + l("FOE",p.foe&&fmt(p.foe))
+       + l("Socorros",p.socorros&&fmt(p.socorros));
 }
 function vistaPatrulha(){
   const c=comp(E.comp), ps=pessoas(E.comp), pend=pendentes(E.comp).filter(p=>p.area==="patrulha");
@@ -1932,7 +1961,7 @@ function blocoCargos(p,lista){
 }
 function lerCargos(){return {cargo:lerCargo($("#f-cargo").parentElement), cargosExtra:[...document.querySelectorAll("#cargos-extra .cargo-sel")].map(lerCargo).filter(Boolean)}}
 function janelaFicha(p){
-  const nova=!p; p=p||{nome:"",ramo:"",cargo:"",cargosExtra:[],email:"",telemovel:"",nascimento:"",compromisso:"",tag:"",atestado:"",estudo:"",interesses:""};
+  const nova=!p; p=p||{nome:"",ramo:"",cargo:"",cargosExtra:[],email:"",telemovel:"",nascimento:"",compromisso:"",tag:"",tagPratico:"",tag2:"",foe:"",socorros:"",estudo:"",interesses:""};
   const opc=(arr,v,vazio)=>`<option value="">${vazio}</option>`+arr.map(x=>`<option ${x===v?"selected":""}>${x}</option>`).join("");
   janela(`<header><div class="running" style="color:var(--azul-claro)">Patrulha<span style="color:var(--tinta-3)">${esc(comp(E.comp).nome)}</span></div><h2>${nova?"Nova pessoa":"Editar ficha"}</h2></header>
     <div class="corpo"><form class="form" id="formFicha" novalidate>
@@ -1942,11 +1971,13 @@ function janelaFicha(p){
       ${blocoCargos(p,CARGOS)}
       <label for="f-email">Email<input type="email" id="f-email" value="${esc(p.email)}"></label>
       <label for="f-telemovel">Telemóvel<input type="tel" id="f-telemovel" inputmode="tel" value="${esc(p.telemovel)}"></label>
-      <span class="rotulo inteiro" style="margin-top:6px;color:var(--azul)">Datas</span>
+      <span class="rotulo inteiro" style="margin-top:6px;color:var(--azul)">Compromisso e formação</span>
       <label for="f-compromisso">Compromisso<input type="date" id="f-compromisso" value="${esc(p.compromisso)}"></label>
-      <label for="f-tag">TAG<input type="date" id="f-tag" value="${esc(p.tag)}"></label>
-      <label for="f-atestado">Atestado médico válido até<input type="date" id="f-atestado" value="${esc(p.atestado)}"></label>
-      <span></span>
+      <label for="f-tag">TAG teórico<input type="date" id="f-tag" value="${esc(p.tag)}"></label>
+      <label for="f-tagPratico">TAG prático<input type="date" id="f-tagPratico" value="${esc(p.tagPratico)}"></label>
+      <label for="f-tag2">TAG 2<input type="date" id="f-tag2" value="${esc(p.tag2)}"></label>
+      <label for="f-foe">FOE<input type="date" id="f-foe" value="${esc(p.foe)}"></label>
+      <label for="f-socorros">Curso de primeiros socorros<input type="date" id="f-socorros" value="${esc(p.socorros)}"></label>
       <span class="rotulo inteiro" style="margin-top:6px;color:var(--azul)">Sobre a pessoa (opcional)</span>
       <label for="f-estudo">Área de estudo ou trabalho<input id="f-estudo" value="${esc(p.estudo)}" placeholder="Ex.: Enfermagem"></label>
       <label for="f-interesses">Áreas de interesse<input id="f-interesses" value="${esc(p.interesses)}" placeholder="Ex.: fotografia, música"></label>
@@ -1956,11 +1987,11 @@ function janelaFicha(p){
   $("#cancelar").onclick=fechar;
   if($("#remover")) $("#remover").onclick=()=>{BD.pessoas=BD.pessoas.filter(x=>x.id!==p.id);registar("Patrulha","Removeu "+p.nome+" da patrulha");guardar();fechar();desenhar();toast("Pessoa removida da patrulha")};
   $("#guardarFicha").onclick=()=>{
-    const v={};["nome","ramo","nascimento","email","telemovel","compromisso","tag","atestado","estudo","interesses"].forEach(k=>v[k]=$("#f-"+k).value.trim());
+    const v={};["nome","ramo","nascimento","email","telemovel","compromisso","tag","tagPratico","tag2","foe","socorros","estudo","interesses"].forEach(k=>v[k]=$("#f-"+k).value.trim());
     Object.assign(v,lerCargos());
     if($("#f-cargo").value==="__outro"&&!v.cargo){toast("Escrevam qual é o cargo");return}
     if(!v.nome){$("#f-nome").focus();toast("Escreve pelo menos o nome");return}
-    const NOMES={nome:"nome",ramo:"ramo",nascimento:"data de nascimento",cargo:"cargo",cargosExtra:"outros cargos",email:"email",telemovel:"telemóvel",compromisso:"compromisso",tag:"TAG",atestado:"atestado",estudo:"área de estudo",interesses:"interesses"};
+    const NOMES={nome:"nome",ramo:"ramo",nascimento:"data de nascimento",cargo:"cargo",cargosExtra:"outros cargos",email:"email",telemovel:"telemóvel",compromisso:"compromisso",tag:"TAG teórico",tagPratico:"TAG prático",tag2:"TAG 2",foe:"FOE",socorros:"curso de primeiros socorros",estudo:"área de estudo",interesses:"interesses"};
     if(nova){BD.pessoas.push({id:"p"+Date.now(),comp:E.comp,registo:null,...v});registar("Patrulha",`Acrescentou ${v.nome} à patrulha${v.cargo?" ("+v.cargo+")":""}`);}
     else {const mud=Object.keys(v).filter(k=>JSON.stringify(p[k]||(k==="cargosExtra"?[]:""))!==JSON.stringify(v[k])); Object.assign(BD.pessoas.find(x=>x.id===p.id),v); if(mud.length) registar("Patrulha",`Alterou a ficha de ${v.nome}: ${mud.map(k=>NOMES[k]).join(", ")}`);}
     guardar();fechar();desenhar();toast(nova?"Pessoa adicionada":"Ficha guardada");
