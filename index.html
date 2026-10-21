@@ -1102,11 +1102,10 @@ function horasTexto(a){
   return h.join(" · ");
 }
 function extrasAtiv(a){
-  const blocos=[["Convocatória",a.texto],["O que levar",a.material],["Material específico",a.materialEspecifico],["Recados importantes",a.recados]]
+  const blocos=[["Material",a.material],["Recados",a.recados]]
     .filter(x=>x[1]&&String(x[1]).trim())
     .map(([t,v])=>`<section class="ativ-texto"><h4>${t}</h4><p>${linhasTexto(v)}</p></section>`).join("");
-  const form=a.inscricoesLink?`<div class="aviso suave"><span><b>As inscrições desta atividade são feitas no formulário do Comissariado Regional.</b> Preencham o formulário e confirmem também aqui quem vai, para o CR ter as contas e os pagamentos certos.</span><a class="btn pequeno" href="${esc(a.inscricoesLink)}" target="_blank" rel="noopener">Abrir o formulário</a></div>`:"";
-  return (blocos?`<div class="ativ-textos">${blocos}</div>`:"")+form;
+  return blocos?`<div class="ativ-textos">${blocos}</div>`:"";
 }
 function dataTexto(a){const d=fmt(a.data);return a.dataFim?`${d} a ${fmt(a.dataFim)}`:d}
 function diasAte(d){return Math.round((new Date(d)-HOJE)/86400000)}
@@ -1770,7 +1769,7 @@ function acaoCR(acao,id,compId){
   }
 }
 function janelaNovaAtividade(ed){
-  const v=ed||{nome:"",descricao:"",publico:{ramos:[],dirigentes:true},data:"",dataFim:"",local:"",prazo:"",custoGuia:0,custoDirigente:0,horaInicio:"",horaFim:"",farda:"",mapa:"",texto:"",material:"",materialEspecifico:"",recados:"",inscricoesLink:""};
+  const v=ed||{nome:"",descricao:"",publico:{ramos:[],dirigentes:true},data:"",dataFim:"",local:"",prazo:"",custoGuia:0,custoDirigente:0,horaInicio:"",horaFim:"",farda:"",mapa:"",material:"",recados:""};
   janelaCR(ed?"Editar atividade":"Criar atividade","Atividades",`
     <label class="inteiro" for="na-nome">Nome<input id="na-nome" value="${esc(v.nome)}" placeholder="Ex.: Atividade Regional de Aventura"></label>
     <label class="inteiro" for="na-desc">Descrição<input id="na-desc" value="${esc(v.descricao)}"></label>
@@ -1781,17 +1780,12 @@ function janelaNovaAtividade(ed){
     <label for="na-hi">Hora de entrada<input type="time" id="na-hi" value="${esc(v.horaInicio||"")}"></label><label for="na-hf">Hora de saída<input type="time" id="na-hf" value="${esc(v.horaFim||"")}"></label>
     <label for="na-farda">Farda<input id="na-farda" value="${esc(v.farda||"")}" placeholder="Ex.: Farda de campo"></label><label for="na-mapa">Link do mapa<input id="na-mapa" value="${esc(v.mapa||"")}" placeholder="https://maps.app.goo.gl/…"></label>
     <label for="na-cg">Custo por guia (€)<input type="number" id="na-cg" min="0" step="0.5" value="${v.custoGuia}"></label><label for="na-cd">Custo por dirigente (€)<input type="number" id="na-cd" min="0" step="0.5" value="${v.custoDirigente}"></label>
-    <span class="rotulo inteiro" style="color:var(--azul)">Convocatória e recados (aparecem na página da atividade)</span>
-    <label class="inteiro" for="na-texto">Convocatória<textarea id="na-texto" rows="6" placeholder="O texto que enviam às companhias">${esc(v.texto||"")}</textarea></label>
-    <label class="inteiro" for="na-material">O que levar<textarea id="na-material" rows="3" placeholder="Uma coisa por linha">${esc(v.material||"")}</textarea></label>
-    <label class="inteiro" for="na-mate">Material específico<input id="na-mate" value="${esc(v.materialEspecifico||"")}" placeholder="Ex.: algo que te faça lembrar a tua primeira memória nas Guias"></label>
-    <label class="inteiro" for="na-recados">Recados importantes<textarea id="na-recados" rows="3">${esc(v.recados||"")}</textarea></label>
-    <label class="inteiro" for="na-insc">Formulário de inscrição (se as inscrições forem feitas fora da plataforma)<input id="na-insc" value="${esc(v.inscricoesLink||"")}" placeholder="https://forms.cloud.microsoft/…"></label>
+    <label class="inteiro" for="na-material">Material<textarea id="na-material" rows="4" placeholder="Uma coisa por linha">${esc(v.material||"")}</textarea></label>
+    <label class="inteiro" for="na-recados">Recados<textarea id="na-recados" rows="4" placeholder="Um recado por linha">${esc(v.recados||"")}</textarea></label>
     ${ed?`<div class="caixa inteiro">As companhias veem logo as alterações. Se mudarem o custo, o valor a pagar das inscrições já feitas é recalculado.</div>`:""}`,ed?"Guardar":"Criar",()=>{
     const ramos=[...document.querySelectorAll(".na-ramo:checked")].map(x=>x.value), a={nome:$("#na-nome").value.trim(),descricao:$("#na-desc").value.trim(),publico:{ramos,dirigentes:$("#na-dir").checked},data:$("#na-data").value,dataFim:$("#na-fim").value||null,local:$("#na-local").value.trim()||"A indicar pelo CR",prazo:$("#na-prazo").value,custoGuia:+$("#na-cg").value||0,custoDirigente:+$("#na-cd").value||0,
       horaInicio:$("#na-hi").value,horaFim:$("#na-hf").value,farda:$("#na-farda").value.trim(),mapa:$("#na-mapa").value.trim(),
-      texto:$("#na-texto").value.trim(),material:$("#na-material").value.trim(),materialEspecifico:$("#na-mate").value.trim(),
-      recados:$("#na-recados").value.trim(),inscricoesLink:$("#na-insc").value.trim()};
+      material:$("#na-material").value.trim(),recados:$("#na-recados").value.trim()};
     if(!a.nome||!a.data||!a.prazo){toast("Preencham o nome, a data e o prazo de confirmação");return}
     if(!ramos.length&&!a.publico.dirigentes){toast("Escolham para quem é a atividade");return}
     if(a.prazo>a.data){toast("O prazo de confirmação tem de ser antes da atividade");return}
