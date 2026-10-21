@@ -475,6 +475,19 @@ a.ativ-cartao{text-decoration:none;color:inherit;grid-template-columns:auto minm
 .cargos-extra-bloco{display:grid;gap:8px;justify-items:start}
 #cargos-extra{display:grid;gap:8px;width:100%}
 .cargo-extra{display:grid;grid-template-columns:1fr auto;gap:8px;align-items:center}
+.ativ-textos{display:grid;gap:18px;border:1px solid var(--azul-20);border-left:3px solid var(--azul-claro);padding:18px 20px;margin:0 0 24px;background:#fff}
+.ativ-texto h4{margin:0 0 6px;font-size:10.5px;text-transform:uppercase;letter-spacing:.09em;color:var(--azul)}
+.ativ-texto p{margin:0;font-size:14px;line-height:1.7;color:var(--tinta-2)}
+.filtros-ct{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px;align-items:end;margin:0 0 14px}
+.filtros-ct label{display:grid;gap:5px;font-size:10.5px;text-transform:uppercase;letter-spacing:.08em;color:var(--tinta-3)}
+.filtros-ct select,.filtros-ct input{font:inherit;font-size:13.5px;padding:8px 10px;border:1px solid var(--azul-20);background:#fff;color:var(--tinta)}
+.filtros-ct .ct-acoes{display:flex;gap:8px;align-items:center;justify-content:flex-end;flex-wrap:wrap}
+.fatura-lida{display:grid;grid-template-columns:1fr 130px 160px;gap:12px;align-items:end;padding:10px 0;border-top:1px solid var(--azul-10)}
+.fatura-lida .fl-nome{display:grid;gap:2px;min-width:0}
+.fatura-lida .fl-nome b{font-size:13px;color:var(--tinta);overflow-wrap:anywhere}
+.fatura-lida label{display:grid;gap:4px;font-size:10.5px;text-transform:uppercase;letter-spacing:.08em;color:var(--tinta-3)}
+.fatura-lida input{font:inherit;font-size:14px;padding:7px 9px;border:1px solid var(--azul-20);color:var(--tinta)}
+@media(max-width:620px){.fatura-lida{grid-template-columns:1fr 1fr}.fatura-lida .fl-nome{grid-column:1/-1}}
 .recado{border:1px solid var(--azul-20);border-left:3px solid var(--azul-claro);background:var(--claro-10);padding:14px 16px;margin:0 0 24px}
 .recado .rotulo{color:var(--azul-claro)}
 .recado p{margin:6px 0 0;font-size:14px;line-height:1.6;color:var(--tinta)}
@@ -644,7 +657,7 @@ function tesConta(){
     <div class="barra-tabela"><div><h3>Conta bancária</h3><p>A conta bancária da companhia e quem são as titulares.</p></div><button class="btn pequeno" data-acao="conta">Editar</button></div>
     <div class="conta-bancaria">
       <div><span class="rotulo">IBAN</span>${t.iban?`<span class="iban">${ibanFormatado(t.iban)}</span>`:`<span class="em-falta">Ainda não indicado</span>`}
-        <span style="font-size:12.5px;color:var(--tinta-3)">${t.comprovativo?"Comprovativo do IBAN entregue":"Sem comprovativo do IBAN"}</span></div>
+        <span style="font-size:12.5px;color:var(--tinta-3)">${t.comprovativo?`Comprovativo entregue: ${esc(nomeDoc(t.comprovativo))} ${botaoDoc(t.comprovativo)}`:"Sem comprovativo do IBAN"}</span></div>
       <div><span class="rotulo">Titulares</span><ul class="titulares">
         ${t.titulares.map((p,i)=>`<li>${esc(p.nome)}<span>${i+1}.ª titular${p.fora?" · fora da patrulha ativa":""}</span></li>`).join("")}
         ${t.titulares.length<2?`<li class="vaga">${t.titulares.length?"Falta a 2.ª titular":"Sem titulares indicadas"}</li>`:""}
@@ -682,12 +695,12 @@ function tesFaturas(){
     const fs=t.faturas.filter(f=>f.mes===m).sort((a,b)=>a.categoria.localeCompare(b.categoria));
     const porCat=CATEGORIAS_CE.map(c=>[c,fs.filter(f=>f.categoria===c).length]).filter(x=>x[1]);
     return `<tr class="mes-linha"><td colspan="6"><b>${nomeMes(m)}</b><span>${porCat.map(([c,n])=>`${c} ${n}`).join(" · ")}</span></td></tr>`+fs.map(f=>`<tr>
-      <td><span class="nome">${esc(f.ficheiro)}</span><span class="sub">Enviada a ${fmt(f.data)}</span>${f.estado==="devolvida"?`<span class="falta">${esc(f.motivo)}</span>`:""}</td>
+      <td><span class="nome">${esc(f.ficheiro)}</span><span class="sub">Enviada a ${fmt(f.data)}${f.dataFatura?` · fatura de ${fmt(f.dataFatura)}`:""}</span>${f.estado==="devolvida"?`<span class="falta">${esc(f.motivo)}</span>`:""}</td>
       <td>${esc(f.categoria)}</td>
       <td>${f.estado==="aceite"?`<span class="estado ok">Aceite</span>`:f.estado==="analise"?`<span class="estado analise">Em análise</span>`:`<span class="estado devolvida">Devolvida</span>`}</td>
       <td>${f.estado==="devolvida"?"":f.papel?`<span class="estado ok">Entregue</span><span class="sub num">${fmt(f.papel.data)}</span>`:(E.cr?`<button class="btn pequeno" data-papel="${f.id}">Marcar entregue</button>`:`<span class="estado analise">Por entregar</span>`)}</td>
-      <td class="valor">${f.estado==="aceite"?eur(f.valor):""}</td>
-      <td><div class="acoes">${f.estado==="devolvida"?`<button class="btn claro pequeno" data-reenviar="${f.id}">Reenviar</button>`:""}</div></td></tr>`).join("");
+      <td class="valor">${f.valor!=null?(f.estado==="aceite"?`<b>${eur(f.valor)}</b>`:`<span style="color:var(--tinta-3)">${eur(f.valor)}</span>`):""}</td>
+      <td><div class="acoes">${f.caminho?`<button class="btn texto pequeno" data-abrir="${esc(f.caminho)}">Abrir</button>`:""}${f.estado==="devolvida"?`<button class="btn claro pequeno" data-reenviar="${f.id}">Reenviar</button>`:""}</div></td></tr>`).join("");
   }).join("");
   return `${dev.length?`<div class="aviso" role="alert"><span><b>${dev.length} ${dev.length===1?"fatura devolvida":"faturas devolvidas"}.</b> Vejam o motivo na lista e voltem a enviar.</span></div>`:""}
   ${semPapel.length?`<div class="aviso suave"><span><b>${semPapel.length} ${semPapel.length===1?"fatura ainda não foi entregue":"faturas ainda não foram entregues"} em papel.</b></span></div>`:""}
@@ -709,7 +722,7 @@ function tesQuotas(){
   const t=tes(), q=contasQuotas(E.comp);
   if(q.devido==null) return `<div class="aviso" role="alert"><span><b>Os censos ${anoGuidista(ANO)} da companhia ainda não foram carregados pelo CR.</b> As quotas são calculadas a partir dos censos.</span></div>`;
   const pct=q.devido?Math.min(1,(q.pago+q.analise)/q.devido):1;
-  const linhas=t.quotas.map(p=>`<tr><td class="num">${fmt(p.data)}</td><td><span class="nome">${esc(p.ficheiro)}</span></td><td class="valor">${eur(p.valor)}</td><td>${p.estado==="confirmado"?`<span class="estado ok">Confirmado</span>`:`<span class="estado analise">Em análise</span>`}</td></tr>`).join("");
+  const linhas=t.quotas.map(p=>`<tr><td class="num">${fmt(p.data)}</td><td><span class="nome">${esc(p.ficheiro)}</span>${p.caminho?`<span class="sub">${botaoDoc(p)}</span>`:""}</td><td class="valor">${eur(p.valor)}</td><td>${p.estado==="confirmado"?`<span class="estado ok">Confirmado</span>`:`<span class="estado analise">Em análise</span>`}</td></tr>`).join("");
   return `${q.falta>0&&passou(PRAZOS.quotas)?`<div class="aviso" role="alert"><span><b>Faltam ${eur(q.falta)} de quotas.</b> Façam a transferência e enviem o comprovativo.</span></div>`:""}
   <section class="seccao">
     <div class="barra-tabela"><div><h3>Quotas ${anoGuidista(ANO)}</h3><p>Calculadas a partir dos censos: valor por guia em cada ramo e valor por ramo aberto.</p></div><button class="btn primario pequeno" data-acao="quota">Enviar comprovativo</button></div>
@@ -741,7 +754,7 @@ function tesAdmissoes(){
     <td>${a.tipo==="reentrada"?"Reentrada":"Nova entrada"}</td>
     <td class="valor">${eur(ADMISSAO_VALOR[a.tipo])}</td>
     <td><span class="estado ${EST[a.estado][0]}">${EST[a.estado][1]}</span></td>
-    <td><div class="acoes">${a.estado==="por_pagar"?`<button class="btn claro pequeno" data-pagar-pa="${a.id}">Enviar comprovativo</button>`:""}</div></td></tr>`).join("");
+    <td><div class="acoes">${a.estado==="por_pagar"?`<button class="btn claro pequeno" data-pagar-pa="${a.id}">Enviar comprovativo</button>`:""}${a.caminho?botaoDoc(a,"Ver comprovativo"):""}</div></td></tr>`).join("");
   return `<section class="seccao">
     <div class="barra-tabela"><div><h3>Propostas de admissão</h3><p>As propostas de admissão são pagas à parte das quotas. O valor depende de ser nova entrada ou reentrada.</p></div>
       <div class="acoes"><button class="btn primario pequeno" data-acao="admissao">Registar proposta</button></div></div>
@@ -758,7 +771,7 @@ function tesOrcamento(){
     <td><select class="celula" data-campo="grupo" aria-label="Grupo"><option value="">Escolher</option>${GRUPOS.map(g=>`<option ${g===o.grupo?"selected":""}>${g}</option>`).join("")}</select></td>
     <td><div class="celula-valor"><input class="celula" data-campo="valor" type="number" min="0" step="1" inputmode="decimal" value="${o.valor??""}" aria-label="Valor previsto"><span>€</span></div></td>
     <td><button class="btn texto pequeno" data-remover-ativ="${o.id}" aria-label="Remover ${esc(o.atividade)}">Remover</button></td></tr>`).join("");
-  return `<div class="aviso suave"><span><b>Opcional.</b> Se já tiverem o orçamento noutro formato, podem só anexar o ficheiro${t.orcamentoFicheiro?` (entregue: ${esc(t.orcamentoFicheiro)})`:""}.</span><button class="btn pequeno" data-acao="orcamentoFicheiro">Anexar orçamento</button></div>
+  return `<div class="aviso suave"><span><b>Opcional.</b> Se já tiverem o orçamento noutro formato, podem só anexar o ficheiro${t.orcamentoFicheiro?` (entregue: ${esc(nomeDoc(t.orcamentoFicheiro))})`:""}.</span>${t.orcamentoFicheiro?botaoDoc(t.orcamentoFicheiro,"Abrir orçamento"):""}<button class="btn pequeno" data-acao="orcamentoFicheiro">Anexar orçamento</button></div>
   <section class="seccao">
     <div class="barra-tabela"><div><h3>Orçamento ${ANO}</h3><p>O que a companhia pretende gastar em cada atividade. As alterações ficam guardadas automaticamente.</p></div><button class="btn primario pequeno" id="novaAtiv">Adicionar atividade</button></div>
     <div class="orc-grelha">
@@ -790,7 +803,7 @@ function tesReembolsos(){
     <td class="num">${fmt(r.data)}</td><td><span class="nome">${esc(r.nome)}</span><span class="sub">${esc(r.motivo)}</span></td>
     <td>${r.atividade?esc(ativs().find(a=>a.id===r.atividade)?.nome||""):'<span class="sub">Nenhuma</span>'}</td>
     <td class="valor">${eur(r.valor)}</td><td>${estadoReembolso(r)}${r.motivo_recusa?`<span class="falta">${esc(r.motivo_recusa)}</span>`:""}</td>
-    <td><span class="sub">${r.ficheiros.map(esc).join(", ")}</span></td></tr>`).join("");
+    <td>${(r.ficheiros||[]).map(x=>`<span class="sub">${esc(nomeDoc(x))} ${botaoDoc(x)}</span>`).join("")||'<span class="sub">—</span>'}</td></tr>`).join("");
   return `<section class="seccao">
     <div class="barra-tabela"><div><h3>Pedidos de reembolso</h3><p>Para despesas da companhia pagas por uma dirigente. O CR aprova e faz o pagamento.</p></div><button class="btn primario pequeno" data-acao="reembolso">Pedir reembolso</button></div>
     <div class="tabela"><table style="min-width:680px"><thead><tr><th>Pedido a</th><th>Quem pagou</th><th>Atividade</th><th class="valor">Valor</th><th>Estado</th><th>Comprovativos</th></tr></thead>
@@ -862,7 +875,7 @@ function janelaConta(){
     <div class="corpo"><form class="form" id="formConta" novalidate>
       <label class="inteiro" for="c-iban">IBAN<input id="c-iban" value="${esc(ibanFormatado(t.iban))}" placeholder="PT50 0000 0000 0000 0000 0000 0" autocomplete="off"></label>
       ${campo(1,t.titulares[0])}${campo(2,t.titulares[1])}
-      <label class="inteiro" for="c-comp">Comprovativo do IBAN ${t.comprovativo?`<span style="text-transform:none;letter-spacing:0;font-weight:400">(já entregue: ${esc(t.comprovativo)})</span>`:""}<input type="file" id="c-comp" accept=".pdf,image/*"></label>
+      <label class="inteiro" for="c-comp">Comprovativo do IBAN ${t.comprovativo?`<span style="text-transform:none;letter-spacing:0;font-weight:400">(já entregue: ${esc(nomeDoc(t.comprovativo))})</span>`:""}<input type="file" id="c-comp" accept=".pdf,image/*"></label>
       <div class="caixa inteiro">Se uma titular já não estiver no ativo, escolham "Outra pessoa" e escrevam o nome como aparece no banco.</div>
     </form></div>
     <div class="rodape"><button class="btn" data-fechar>Cancelar</button><button class="btn primario" id="guardarConta">Guardar</button></div>`,"simples");
@@ -876,9 +889,10 @@ function janelaConta(){
     const nomesTit=x=>x.map(y=>y.nome).join(" e ")||"nenhuma";
     if(iban!==t.iban) registar("Conta bancária",t.iban?`Alterou o IBAN de ${ibanFormatado(t.iban)} para ${iban?ibanFormatado(iban):"(vazio)"}`:`Indicou o IBAN ${ibanFormatado(iban)}`);
     if(nomesTit(tit)!==nomesTit(t.titulares)) registar("Conta bancária",`Alterou as titulares: ${nomesTit(t.titulares)} → ${nomesTit(tit)}`);
-    if(f) registar("Conta bancária","Enviou um novo comprovativo do IBAN ("+f.name+")");
-    t.iban=iban; t.titulares=tit; if(f) t.comprovativo=f.name;
-    guardar();fechar();desenhar();toast(tit.length<2?"Conta guardada. Falta ainda a 2.ª titular.":"Conta bancária guardada");
+    comEnvio("#guardarConta", async ()=>{
+      if(f){ t.comprovativo = {ficheiro:f.name, caminho: await arquivar(f,"conta")}; registar("Conta bancária","Enviou um novo comprovativo do IBAN ("+f.name+")"); }
+      t.iban=iban; t.titulares=tit;
+    }, tit.length<2?"Conta guardada. Falta ainda a 2.ª titular.":"Conta bancária guardada");
   };
 }
 function janelaFaturas(reenviar){
@@ -893,17 +907,64 @@ function janelaFaturas(reenviar){
         <label for="t-mes">Mês da despesa<select id="t-mes">${meses.map(m=>`<option value="${m}" ${(reenviar?.mes||mesAtual)===m?"selected":""}>${nomeMes(m)}</option>`).join("")}</select></label>
       </form>
       <div class="ficheiro"><b style="color:var(--azul);font-weight:600">${reenviar?"Nova versão da fatura":"Faturas"}</b><span>PDF ou fotografia legível, com o NIF da Associação. Se tiverem faturas de categorias ou meses diferentes, enviem-nas em separado.</span><input type="file" id="t-fich" accept=".pdf,image/*" ${reenviar?"":"multiple"}></div>
+      <div id="lidas"></div>
     </div>
     <div class="rodape"><button class="btn" data-fechar>Cancelar</button><button class="btn primario" id="enviarFaturas">Submeter</button></div>`,"simples");
-  $("#enviarFaturas").onclick=()=>{
-    const cat=$("#t-cat").value, mes=$("#t-mes").value, fs=[...$("#t-fich").files];
+
+  const linhas=[];
+  const lerInputs=()=>linhas.forEach((l,i)=>{
+    const v=document.querySelector(`[data-fval="${i}"]`), d=document.querySelector(`[data-fdata="${i}"]`);
+    if(v) l.valor = v.value==="" ? null : parseFloat(v.value);
+    if(d) l.data = d.value;
+  });
+  const pintar=()=>{
+    const alvo=$("#lidas"); if(!alvo) return;
+    alvo.innerHTML = linhas.length ? `<span class="rotulo" style="color:var(--azul)">Valor de cada fatura</span>
+      <p class="sub" style="margin:4px 0 10px;color:var(--tinta-3)">O valor é lido da imagem aqui no vosso computador. Confirmem sempre antes de submeter: em fotografias tortas ou faturas com vários totais, engana-se.</p>`
+      + linhas.map((l,i)=>`<div class="fatura-lida">
+          <div class="fl-nome"><b>${esc(l.file.name)}</b><span class="sub" data-festado="${i}">${esc(l.estado)}</span></div>
+          <label for="fv${i}">Valor (€)<input type="number" id="fv${i}" data-fval="${i}" min="0" step="0.01" value="${l.valor!=null?l.valor:""}"></label>
+          <label for="fd${i}">Data da fatura<input type="date" id="fd${i}" data-fdata="${i}" value="${l.data||""}"></label>
+        </div>`).join("") : "";
+  };
+  const estado=(l,txt)=>{ l.estado=txt; const el=document.querySelector(`[data-festado="${linhas.indexOf(l)}"]`); if(el) el.textContent=txt; };
+
+  $("#t-fich").addEventListener("change", async ()=>{
+    linhas.length=0;
+    [...$("#t-fich").files].slice(0,8).forEach(f=>linhas.push({file:f, valor:null, data:"", estado:"à espera de ser lida"}));
+    pintar();
+    for(const l of linhas){
+      if(/pdf/i.test(l.file.type) || /\.pdf$/i.test(l.file.name)){ estado(l,"PDF: escrevam o valor à mão"); continue }
+      estado(l,"a ler a imagem…");
+      try{
+        const r = await lerFatura(l.file, pct => estado(l,"a ler a imagem… "+pct+"%"));
+        lerInputs();
+        if(r.valor){ l.valor=r.valor; }
+        if(r.data && !l.data){ l.data=r.data; }
+        l.estado = r.valor ? ("li "+eur(r.valor)+(r.data?" de "+fmt(r.data):"")+" — confirmem") : "não consegui ler o valor, escrevam à mão";
+      }catch(e){ l.estado="não consegui ler ("+e.message+")" }
+      pintar();
+    }
+  });
+
+  $("#enviarFaturas").onclick=async ()=>{
+    const cat=$("#t-cat").value, mes=$("#t-mes").value;
     if(!cat){toast("Escolham a categoria das faturas");return}
-    if(!fs.length){toast("Escolham pelo menos uma fatura");return}
-    const t=tes(), hoje=iso(HOJE);
-    if(reenviar) Object.assign(t.faturas.find(x=>x.id===reenviar.id),{ficheiro:fs[0].name,data:hoje,categoria:cat,mes,estado:"analise",motivo:"",valor:null,papel:null});
-    else fs.forEach((f,i)=>t.faturas.push({id:"f"+Date.now()+i,ficheiro:f.name,data:hoje,categoria:cat,mes,estado:"analise",valor:null,papel:null,motivo:""}));
-    registar("Faturas",reenviar?`Reenviou a fatura ${fs[0].name} (${cat}, ${nomeMesLongo(mes)})`:`Enviou ${fs.length} ${fs.length===1?"fatura":"faturas"} (${cat}, ${nomeMesLongo(mes)})`);
-    guardar();fechar();desenhar();toast(reenviar?"Fatura reenviada ao CR":(fs.length===1?"Fatura enviada ao CR":fs.length+" faturas enviadas ao CR"));
+    if(!linhas.length){toast("Escolham pelo menos uma fatura");return}
+    lerInputs();
+    if(linhas.some(l=>!(l.valor>0))){toast("Confirmem o valor de cada fatura");return}
+    const b=$("#enviarFaturas"); b.disabled=true; b.textContent="A enviar…";
+    try{
+      const t=tes(), hoje=iso(HOJE);
+      for(const l of linhas){
+        const caminho=await arquivar(l.file,"faturas");
+        if(reenviar) Object.assign(t.faturas.find(x=>x.id===reenviar.id),{ficheiro:l.file.name,caminho,data:hoje,dataFatura:l.data||"",categoria:cat,mes,estado:"analise",motivo:"",valor:l.valor,papel:null});
+        else t.faturas.push({id:"f"+Date.now()+Math.random().toString(36).slice(2,5),ficheiro:l.file.name,caminho,data:hoje,dataFatura:l.data||"",mes,categoria:cat,estado:"analise",valor:l.valor,papel:null,motivo:""});
+      }
+      const total=linhas.reduce((a,l)=>a+l.valor,0);
+      registar("Faturas",reenviar?`Reenviou a fatura ${linhas[0].file.name} (${cat}, ${nomeMesLongo(mes)}, ${eur(linhas[0].valor)})`:`Enviou ${linhas.length} ${linhas.length===1?"fatura":"faturas"} (${cat}, ${nomeMesLongo(mes)}, ${eur(total)})`);
+      guardar();fechar();desenhar();toast(reenviar?"Fatura reenviada ao CR":(linhas.length===1?"Fatura enviada ao CR":linhas.length+" faturas enviadas ao CR"));
+    }catch(e){ b.disabled=false; b.textContent="Submeter"; toast(e.message) }
   };
 }
 function janelaAdmissao(){
@@ -927,13 +988,21 @@ function janelaPagarAdmissao(pa){
     </div>
     <div class="rodape"><button class="btn" data-fechar>Cancelar</button><button class="btn primario" id="enviarPA">Enviar</button></div>`,"simples");
   $("#enviarPA").onclick=()=>{const f=$("#pa-fich").files[0];if(!f){toast("Anexem o comprovativo da transferência");return}
-    pa.estado="enviado";pa.ficheiro=f.name;registar("Admissões","Enviou o comprovativo da proposta de "+pa.nome);guardar();fechar();desenhar();toast("Comprovativo enviado ao CR")};
+    comEnvio("#enviarPA", async ()=>{
+      pa.caminho = await arquivar(f,"admissoes");
+      pa.estado="enviado"; pa.ficheiro=f.name;
+      registar("Admissões","Enviou o comprovativo da proposta de "+pa.nome);
+    }, "Comprovativo enviado ao CR")};
 }
 function janelaOrcamentoFicheiro(){
   janela(cabecJanela("Tesouraria","Anexar orçamento")+`
     <div class="corpo"><div class="ficheiro"><b style="color:var(--azul);font-weight:600">Orçamento da companhia</b><span>No formato que já usam (Excel ou PDF)</span><input type="file" id="o-fich" accept=".pdf,.xlsx,.xls,.csv"></div></div>
     <div class="rodape"><button class="btn" data-fechar>Cancelar</button><button class="btn primario" id="enviarOrc">Enviar</button></div>`,"simples");
-  $("#enviarOrc").onclick=()=>{const f=$("#o-fich").files[0];if(!f){toast("Escolham o ficheiro do orçamento");return}tes().orcamentoFicheiro=f.name;registar("Orçamento","Anexou o orçamento ("+f.name+")");guardar();fechar();desenhar();toast("Orçamento enviado ao CR")};
+  $("#enviarOrc").onclick=()=>{const f=$("#o-fich").files[0];if(!f){toast("Escolham o ficheiro do orçamento");return}
+    comEnvio("#enviarOrc", async ()=>{
+      tes().orcamentoFicheiro = {ficheiro:f.name, caminho: await arquivar(f,"orcamento")};
+      registar("Orçamento","Anexou o orçamento ("+f.name+")");
+    }, "Orçamento enviado ao CR")};
 }
 function janelaQuota(){
   const q=contasQuotas(E.comp);
@@ -949,7 +1018,11 @@ function janelaQuota(){
     const v=parseFloat($("#q-valor").value), f=$("#q-fich").files[0], d=$("#q-data").value;
     if(!(v>0)||!d){toast("Indica a data e o valor da transferência");return}
     if(!f){toast("Anexa o comprovativo da transferência");return}
-    tes().quotas.push({id:"q"+Date.now(),data:d,valor:v,ficheiro:f.name,estado:"analise"});registar("Quotas","Enviou comprovativo de quotas de "+eur(v));guardar();fechar();desenhar();toast("Comprovativo enviado ao CR");
+    comEnvio("#enviarQuota", async ()=>{
+      const caminho = await arquivar(f,"quotas");
+      tes().quotas.push({id:"q"+Date.now(),data:d,valor:v,ficheiro:f.name,caminho,estado:"analise"});
+      registar("Quotas","Enviou comprovativo de quotas de "+eur(v));
+    }, "Comprovativo enviado ao CR");
   };
 }
 function ibansConhecidos(){
@@ -974,11 +1047,16 @@ function janelaReembolso(atividade){
   $("#enviarReembolso").onclick=()=>{
     const sIban=$("#r-iban-sel").value;
     const r={nome:$("#r-nome").value.trim(),iban:ibanLimpo(sIban==="__outro"?$("#r-iban").value:sIban),valor:parseFloat($("#r-valor").value),motivo:$("#r-motivo").value.trim(),atividade:$("#r-ativ").value||null};
-    const fs=[...$("#r-fich").files].map(f=>f.name);
+    const fs=[...$("#r-fich").files];
     if(!r.nome||!r.motivo||!(r.valor>0)){toast("Preenche quem pagou, o valor e para que foi");return}
     if(!ibanValido(r.iban)){toast("O IBAN não é válido. Confirma os 25 caracteres, a começar por PT50.");return}
     if(!fs.length){toast("Anexa pelo menos uma fatura ou talão");return}
-    tes().reembolsos.push({id:"r"+Date.now(),...r,data:iso(HOJE),ficheiros:fs,estado:"pedido"});registar("Reembolsos",`Pediu reembolso de ${eur(r.valor)} para ${r.nome} (${r.motivo})`);guardar();fechar();desenhar();toast("Pedido de reembolso enviado");
+    comEnvio("#enviarReembolso", async ()=>{
+      const docs=[];
+      for(const f of fs) docs.push({ficheiro:f.name, caminho: await arquivar(f,"reembolsos")});
+      tes().reembolsos.push({id:"r"+Date.now(),...r,data:iso(HOJE),ficheiros:docs,estado:"pedido"});
+      registar("Reembolsos",`Pediu reembolso de ${eur(r.valor)} para ${r.nome} (${r.motivo})`);
+    }, "Pedido de reembolso enviado");
   };
 }
 
@@ -1017,6 +1095,18 @@ function publicoTexto(a){
   if(!a.publico.ramos.length) return "Só dirigentes";
   if(a.publico.ramos.length===RAMOS_CENSOS.length) return "Toda a companhia";
   return "Ramo "+a.publico.ramos.join(", ")+(a.publico.dirigentes?" e dirigentes":"");
+}
+const linhasTexto = v => esc(String(v||"")).replace(/\n/g,"<br>");
+function horasTexto(a){
+  const h=[]; if(a.horaInicio) h.push("entrada às "+a.horaInicio); if(a.horaFim) h.push("saída às "+a.horaFim);
+  return h.join(" · ");
+}
+function extrasAtiv(a){
+  const blocos=[["Convocatória",a.texto],["O que levar",a.material],["Material específico",a.materialEspecifico],["Recados importantes",a.recados]]
+    .filter(x=>x[1]&&String(x[1]).trim())
+    .map(([t,v])=>`<section class="ativ-texto"><h4>${t}</h4><p>${linhasTexto(v)}</p></section>`).join("");
+  const form=a.inscricoesLink?`<div class="aviso suave"><span><b>As inscrições desta atividade são feitas no formulário do Comissariado Regional.</b> Preencham o formulário e confirmem também aqui quem vai, para o CR ter as contas e os pagamentos certos.</span><a class="btn pequeno" href="${esc(a.inscricoesLink)}" target="_blank" rel="noopener">Abrir o formulário</a></div>`:"";
+  return (blocos?`<div class="ativ-textos">${blocos}</div>`:"")+form;
 }
 function dataTexto(a){const d=fmt(a.data);return a.dataFim?`${d} a ${fmt(a.dataFim)}`:d}
 function diasAte(d){return Math.round((new Date(d)-HOJE)/86400000)}
@@ -1079,11 +1169,12 @@ function vistaAtividade(a){
   return `${migalhas([["Atividades",R("atividades")],[a.nome]])}
   <div class="cabecalho"><div><span class="rotulo" style="color:var(--azul-claro)">${publicoTexto(a)}</span><span class="rule" style="margin-top:10px"></span><h1>${esc(a.nome)}</h1><p>${esc(a.descricao)}</p></div></div>
   <div class="ativ-factos">
-    <div><span class="rotulo">Quando</span><b>${dataTexto(a)}</b></div>
-    <div><span class="rotulo">Onde</span><b>${esc(a.local)}</b></div>
+    <div><span class="rotulo">Quando</span><b>${dataTexto(a)}</b>${horasTexto(a)?`<span class="sub">${horasTexto(a)}</span>`:""}</div>
+    <div><span class="rotulo">Onde</span><b>${esc(a.local)}</b>${a.mapa?`<a class="sub" href="${esc(a.mapa)}" target="_blank" rel="noopener" style="color:var(--azul-claro)">Ver no mapa</a>`:""}${a.farda?`<span class="sub">${esc(a.farda)}</span>`:""}</div>
     <div><span class="rotulo">Confirmar até</span><b>${fmt(a.prazo)}</b></div>
     <div><span class="rotulo">Custo</span><b>${a.custoGuia||a.custoDirigente?[a.custoGuia?eur(a.custoGuia)+" por guia":"",a.custoDirigente?eur(a.custoDirigente)+" por dirigente":""].filter(Boolean).join(" · "):"Sem custo"}</b></div>
   </div>
+  ${extrasAtiv(a)}
   ${fechado&&!i?`<div class="aviso" role="alert"><span><b>O prazo de confirmação terminou.</b> Para inscrever alguém, contactem o CR.</span></div>`:""}
   ${semCensos?`<div class="aviso suave"><span><b>Os censos da companhia ainda não foram carregados pelo CR.</b> Os nomes das guias aparecem aqui assim que estiverem carregados.</span></div>`:""}
   <div class="conf-grelha">
@@ -1099,7 +1190,7 @@ function vistaAtividade(a){
   </div>
   ${pag?`<section class="seccao espaco" id="sec-pagamento" ${inscAlterada(a)?"hidden":""}><div class="barra-tabela"><div><h3>Pagamento</h3><p>${i.guias.length+(i.amigas?.length||0)} guias${i.amigas?.length?` (${i.amigas.length} amigas)`:""} × ${eur(a.custoGuia)}${a.custoDirigente?` + ${i.dirigentes.length} dirigentes × ${eur(a.custoDirigente)}`:""} = ${eur(pag.custo)}. Também aparece na Tesouraria.</p></div>${pag.falta>0?`<button class="btn primario pequeno" data-pagar-ativ="${a.id}">Enviar comprovativo · ${eur(pag.falta)}</button>`:""}</div>
     <div class="pag-linha">${pagamentoTexto(a,i)}${pag.falta>0?`<span class="sub">${pag.conf+pag.env>0?`Já pagaram ${eur(pag.conf+pag.env)}. `:""}Façam a transferência de ${eur(pag.falta)} para a conta do CR (${CR_IBAN}) e enviem o comprovativo.</span>`:""}</div>
-    ${pag.ps.length?`<ul class="pag-historico">${pag.ps.map(p=>`<li><span>${fmt(p.data)} · ${esc(p.ficheiro)}</span><b>${eur(p.valor)}</b><span class="estado ${p.estado==="confirmado"?"ok":"analise"}">${p.estado==="confirmado"?"Confirmado":"Em análise"}</span></li>`).join("")}</ul>`:""}</section>`:""}
+    ${pag.ps.length?`<ul class="pag-historico">${pag.ps.map(p=>`<li><span>${fmt(p.data)} · ${esc(p.ficheiro)} ${botaoDoc(p)}</span><b>${eur(p.valor)}</b><span class="estado ${p.estado==="confirmado"?"ok":"analise"}">${p.estado==="confirmado"?"Confirmado":"Em análise"}</span></li>`).join("")}</ul>`:""}</section>`:""}
   <section class="seccao espaco"><div class="barra-tabela"><div><h3>Reembolsos desta atividade</h3><p>Para despesas da atividade pagas por uma dirigente. O pedido também aparece na Tesouraria.</p></div><button class="btn pequeno" data-reembolso-ativ="${a.id}">Pedir reembolso</button></div>
     ${reemb.length?`<div class="tabela"><table style="min-width:520px"><thead><tr><th>Quem pagou</th><th class="valor">Valor</th><th>Estado</th></tr></thead><tbody>${reemb.map(r=>`<tr><td><span class="nome">${esc(r.nome)}</span><span class="sub">${esc(r.motivo)}</span></td><td class="valor">${eur(r.valor)}</td><td>${estadoReembolso(r)}</td></tr>`).join("")}</tbody></table></div>`:`<p class="sub" style="margin:0;color:var(--tinta-3)">Ainda não há pedidos de reembolso para esta atividade.</p>`}
   </section>`;
@@ -1134,7 +1225,11 @@ function janelaPagamentoAtiv(a){
     </div>
     <div class="rodape"><button class="btn" data-fechar>Cancelar</button><button class="btn primario" id="enviarPag">Enviar</button></div>`,"simples");
   $("#enviarPag").onclick=()=>{const f=$("#p-fich").files[0];if(!f){toast("Anexa o comprovativo da transferência");return}
-    (i.pagamentos=i.pagamentos||[]).push({id:"pg"+Date.now(),estado:"enviado",ficheiro:f.name,data:iso(HOJE),valor:v});registar("Pagamento de atividade","Enviou comprovativo de "+eur(v)+" · "+a.nome);guardar();fechar();desenhar();toast("Comprovativo enviado ao CR")};
+    comEnvio("#enviarPag", async ()=>{
+      const caminho = await arquivar(f,"atividades");
+      (i.pagamentos=i.pagamentos||[]).push({id:"pg"+Date.now(),estado:"enviado",ficheiro:f.name,caminho,data:iso(HOJE),valor:v});
+      registar("Pagamento de atividade","Enviou comprovativo de "+eur(v)+" · "+a.nome);
+    }, "Comprovativo enviado ao CR")};
 }
 function estadoReembolso(r){const EST={pedido:["analise","Pedido"],aprovado:["analise","Aprovado"],pago:["ok","Pago"],recusado:["devolvida","Recusado"]};return `<span class="estado ${EST[r.estado][0]}">${EST[r.estado][1]}</span>`}
 function tesAtividades(){
@@ -1291,12 +1386,12 @@ function pedidosCR(){
   const L=[];
   COMPANHIAS.forEach(c=>{
     const t=BD.tesouraria[c.id], ins=BD.inscricoes[c.id]||{};
-    t.faturas.filter(f=>f.estado==="analise").forEach(f=>L.push({tipo:"Faturas",comp:c.id,data:f.data,titulo:f.ficheiro,det:f.categoria+" · "+nomeMesLongo(f.mes),acoes:[["aceitarFatura","Aceitar",f.id,"primario"],["devolverFatura","Devolver",f.id]]}));
-    t.quotas.filter(q=>q.estado==="analise").forEach(q=>L.push({tipo:"Quotas",comp:c.id,data:q.data,titulo:"Comprovativo de quotas · "+eur(q.valor),det:q.ficheiro,acoes:[["confirmarQuota","Confirmar pagamento",q.id,"primario"]]}));
-    t.admissoes.filter(a=>a.estado==="enviado").forEach(a=>L.push({tipo:"Admissões",comp:c.id,data:a.data,titulo:a.nome+" · "+eur(ADMISSAO_VALOR[a.tipo]),det:(a.tipo==="reentrada"?"Reentrada":"Nova entrada")+" · Ramo "+a.ramo+(a.ficheiro?" · "+a.ficheiro:""),acoes:[["confirmarPA","Confirmar pagamento",a.id,"primario"]]}));
-    BD.atividades.forEach(a=>{const i=ins[a.id]; (i?.pagamentos||[]).filter(p=>p.estado==="enviado").forEach(p=>L.push({tipo:"Atividades",comp:c.id,data:p.data,titulo:a.nome+" · "+eur(p.valor),det:"Pagamento da inscrição · "+p.ficheiro+" · total da inscrição "+eur(custoInsc(a,i)),acoes:[["confirmarAtiv","Confirmar pagamento",a.id+"|"+p.id,"primario"]]}))});
+    t.faturas.filter(f=>f.estado==="analise").forEach(f=>L.push({tipo:"Faturas",comp:c.id,data:f.data,titulo:f.ficheiro,det:f.categoria+" · "+nomeMesLongo(f.mes)+(f.valor!=null?" · a companhia indicou "+eur(f.valor):""),acoes:[["aceitarFatura","Aceitar",f.id,"primario"],["devolverFatura","Devolver",f.id],...(f.caminho?[["abrirDoc","Ver fatura",f.caminho]]:[])]}));
+    t.quotas.filter(q=>q.estado==="analise").forEach(q=>L.push({tipo:"Quotas",comp:c.id,data:q.data,titulo:"Comprovativo de quotas · "+eur(q.valor),det:q.ficheiro,acoes:[["confirmarQuota","Confirmar pagamento",q.id,"primario"],...(q.caminho?[["abrirDoc","Ver comprovativo",q.caminho]]:[])]}));
+    t.admissoes.filter(a=>a.estado==="enviado").forEach(a=>L.push({tipo:"Admissões",comp:c.id,data:a.data,titulo:a.nome+" · "+eur(ADMISSAO_VALOR[a.tipo]),det:(a.tipo==="reentrada"?"Reentrada":"Nova entrada")+" · Ramo "+a.ramo+(a.ficheiro?" · "+a.ficheiro:""),acoes:[["confirmarPA","Confirmar pagamento",a.id,"primario"],...(a.caminho?[["abrirDoc","Ver comprovativo",a.caminho]]:[])]}));
+    BD.atividades.forEach(a=>{const i=ins[a.id]; (i?.pagamentos||[]).filter(p=>p.estado==="enviado").forEach(p=>L.push({tipo:"Atividades",comp:c.id,data:p.data,titulo:a.nome+" · "+eur(p.valor),det:"Pagamento da inscrição · "+p.ficheiro+" · total da inscrição "+eur(custoInsc(a,i)),acoes:[["confirmarAtiv","Confirmar pagamento",a.id+"|"+p.id,"primario"],...(p.caminho?[["abrirDoc","Ver comprovativo",p.caminho]]:[])]}))});
     t.reembolsos.filter(r=>r.estado==="pedido"||r.estado==="aprovado").forEach(r=>L.push({tipo:"Reembolsos",comp:c.id,data:r.data,titulo:r.nome+" · "+eur(r.valor),det:r.motivo+(r.atividade?" · "+(BD.atividades.find(a=>a.id===r.atividade)?.nome||""):"")+" · IBAN "+ibanFormatado(r.iban),
-      acoes:r.estado==="pedido"?[["aprovarReemb","Aprovar",r.id,"primario"],["recusarReemb","Recusar",r.id]]:[["pagoReemb","Marcar como pago",r.id,"primario"]],estado:r.estado==="aprovado"?"Aprovado":""}));
+      acoes:(r.estado==="pedido"?[["aprovarReemb","Aprovar",r.id,"primario"],["recusarReemb","Recusar",r.id]]:[["pagoReemb","Marcar como pago",r.id,"primario"]]).concat((r.ficheiros||[]).filter(x=>camDoc(x)).map((x,n)=>["abrirDoc",(r.ficheiros.length>1?"Ver talão "+(n+1):"Ver talão"),camDoc(x)])),estado:r.estado==="aprovado"?"Aprovado":""}));
   });
   BD.emprestimos.filter(e=>["pendente","aprovado","levantado"].includes(e.estado)).forEach(e=>L.push({tipo:"Empréstimos",comp:e.comp,data:e.criado,titulo:resumoItens(e),det:e.motivo+" · para "+fmt(e.uso.inicio)+(e.uso.fim&&e.uso.fim!==e.uso.inicio?" a "+fmt(e.uso.fim):"")+(e.obs?" · "+e.obs:""),
     acoes:e.estado==="pendente"?[["aprovarEmp","Aprovar",e.id,"primario"],["recusarEmp","Recusar",e.id]]:e.estado==="aprovado"?[["levantadoEmp","Marcar levantado",e.id,"primario"]]:[["devolvidoEmp","Marcar devolvido",e.id,"primario"]],
@@ -1384,19 +1479,55 @@ function exemploPessoasCR(){
     .map((x,i)=>({id:"cr"+i,nome:x[0],cargo:x[1],cargosExtra:[],ramo:x[2],email:x[0].split(" ")[0].toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g,"")+".cr@exemplo.pt",telemovel:"93"+String(1000000+i*413271).slice(0,7)}));
 }
 function crContactos(){
-  const f=E.crFiltroCt||"", linhas=contactosLinhas().filter(l=>!f||l.comp===f);
-  const cr=BD.pessoasCR||[];
+  const f = E.crCt || {comp:"", cargo:"", ramo:"", procura:""};
+  const todas = contactosLinhas();
+  const cargos = [...new Set(todas.map(l=>l.cargo).filter(Boolean))].sort((a,b)=>a.localeCompare(b,"pt"));
+  const ramos = [...new Set(todas.map(l=>l.ramo).filter(Boolean))].sort((a,b)=>a.localeCompare(b,"pt"));
+  const q = f.procura.trim().toLowerCase();
+  const linhas = todas.filter(l =>
+    (!f.comp  || l.comp  === f.comp) &&
+    (!f.cargo || l.cargo === f.cargo) &&
+    (!f.ramo  || (f.ramo === "__sem" ? !l.ramo : l.ramo === f.ramo)) &&
+    (!q || (l.nome+" "+l.email+" "+l.tel).toLowerCase().includes(q))
+  );
+  const cr = BD.pessoasCR || [];
+  const filtrado = f.comp || f.cargo || f.ramo || q;
   return `<div class="topo"><div class="running" style="text-align:right">Comissariado Regional<span>Contactos</span></div></div>
   <div class="cabecalho"><div><span class="rule"></span><h1>Contactos</h1><p>É esta a informação que vai para o Excel "Contactos Regionais 2026-2027": uma linha por pessoa e por cargo.</p></div></div>
   <section class="seccao"><div class="barra-tabela"><div><h3>Patrulha do Comissariado Regional</h3></div><button class="btn primario pequeno" data-cr-pessoa="nova">Acrescentar pessoa</button></div>
     <div class="tabela"><table style="min-width:640px"><thead><tr><th>Nome</th><th>Cargos</th><th>Ramo</th><th>Contactos</th><th></th></tr></thead><tbody>
     ${cr.map(p=>`<tr><td><span class="nome">${esc(p.nome)}</span></td><td class="cargo">${esc(p.cargo)}${(p.cargosExtra||[]).map(c=>`<span class="sub">${esc(c)}</span>`).join("")}</td><td>${p.ramo?`<span class="ramo"><i style="background:${RAMOS[p.ramo]}"></i>${p.ramo}</span>`:'<span class="sub">—</span>'}</td><td class="contactos">${esc(p.email)}<span class="sub num">${esc(p.telemovel)}</span></td><td><div class="acoes"><button class="btn pequeno" data-cr-pessoa="${p.id}">Editar</button></div></td></tr>`).join("")||`<tr><td colspan="5" class="vazio">Ainda não há pessoas.</td></tr>`}
     </tbody></table></div></section>
-  <section class="seccao espaco"><div class="barra-tabela"><div><h3>Todos os contactos regionais</h3><p>${linhas.length} linhas. Atualiza-se sozinho quando as companhias mudam as fichas da patrulha.</p></div>
-    <label for="filtro-ct" style="min-width:240px">Companhia<select id="filtro-ct"><option value="">Todas</option><option ${f==="Comissariado Regional"?"selected":""}>Comissariado Regional</option>${COMPANHIAS.map(c=>`<option ${f===NOME_EXCEL[c.id]?"selected":""}>${NOME_EXCEL[c.id]}</option>`).join("")}</select></label></div>
-    <div class="tabela"><table style="min-width:860px"><thead><tr><th>Companhia</th><th>Cargo</th><th>Nome</th><th>Ramo</th><th>Email</th><th>Telemóvel</th></tr></thead><tbody>
-    ${linhas.map(l=>`<tr><td>${esc(l.comp)}</td><td>${esc(l.cargo)}</td><td><span class="nome">${esc(l.nome)}</span></td><td>${esc(l.ramo)}</td><td class="contactos">${esc(l.email)}</td><td class="num">${esc(l.tel)}</td></tr>`).join("")}
+  <section class="seccao espaco"><div class="barra-tabela"><div><h3>Todos os contactos regionais</h3><p id="ct-resumo">${linhas.length} ${linhas.length===1?"linha":"linhas"}${filtrado?` de ${todas.length}`:""}. Atualiza-se sozinho quando as companhias mudam as fichas da patrulha.</p></div></div>
+    <div class="filtros-ct">
+      <label for="ct-comp">Companhia<select id="ct-comp"><option value="">Todas</option><option ${f.comp==="Comissariado Regional"?"selected":""}>Comissariado Regional</option>${COMPANHIAS.map(c=>`<option ${f.comp===NOME_EXCEL[c.id]?"selected":""}>${NOME_EXCEL[c.id]}</option>`).join("")}</select></label>
+      <label for="ct-cargo">Cargo<select id="ct-cargo"><option value="">Todos</option>${cargos.map(c=>`<option ${f.cargo===c?"selected":""}>${esc(c)}</option>`).join("")}</select></label>
+      <label for="ct-ramo">Ramo<select id="ct-ramo"><option value="">Todos</option>${ramos.map(r=>`<option ${f.ramo===r?"selected":""}>${esc(r)}</option>`).join("")}<option value="__sem" ${f.ramo==="__sem"?"selected":""}>Sem ramo</option></select></label>
+      <label for="ct-procura">Procurar<input id="ct-procura" type="search" placeholder="Nome, email ou telemóvel" value="${esc(f.procura)}"></label>
+      <div class="ct-acoes">${filtrado?`<button class="btn texto pequeno" id="ctLimpar">Limpar filtros</button>`:""}<button class="btn pequeno" id="exportarContactos">Exportar para Excel</button></div>
+    </div>
+    <div class="tabela tabela-ct"><table style="min-width:860px"><thead><tr><th>Companhia</th><th>Cargo</th><th>Nome</th><th>Ramo</th><th>Email</th><th>Telemóvel</th></tr></thead><tbody>
+    ${linhas.map(l=>`<tr><td>${esc(l.comp)}</td><td>${esc(l.cargo)}</td><td><span class="nome">${esc(l.nome)}</span></td><td>${l.ramo?`<span class="ramo"><i style="background:${RAMOS[l.ramo]||"var(--azul-20)"}"></i>${esc(l.ramo)}</span>`:'<span class="sub">Sem ramo</span>'}</td><td class="contactos">${esc(l.email)}</td><td class="num">${esc(l.tel)}</td></tr>`).join("")||`<tr><td colspan="6" class="vazio">Não há contactos com estes filtros.</td></tr>`}
     </tbody></table></div></section>`;
+}
+async function exportarContactos(){
+  const f = E.crCt || {comp:"", cargo:"", ramo:"", procura:""};
+  const q = f.procura.trim().toLowerCase();
+  const L = contactosLinhas().filter(l =>
+    (!f.comp  || l.comp  === f.comp) &&
+    (!f.cargo || l.cargo === f.cargo) &&
+    (!f.ramo  || (f.ramo === "__sem" ? !l.ramo : l.ramo === f.ramo)) &&
+    (!q || (l.nome+" "+l.email+" "+l.tel).toLowerCase().includes(q))
+  ).map(l => ({Companhia:l.comp, Cargo:l.cargo, Nome:l.nome, Ramo:l.ramo, Email:l.email, "Telemóvel":l.tel}));
+  if(!L.length){ toast("Não há contactos com estes filtros."); return }
+  toast("A preparar o Excel…");
+  await carregarGuiao("https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js");
+  const ws = XLSX.utils.json_to_sheet(L);
+  ws["!cols"] = [{wch:28},{wch:26},{wch:26},{wch:12},{wch:32},{wch:14}];
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, "Contactos");
+  XLSX.writeFile(wb, "Contactos Regionais " + anoGuidista(ANO).replace("/","-") + ".xlsx");
+  toast(L.length + (L.length===1?" contacto exportado":" contactos exportados"));
 }
 function janelaPessoaCR(id){
   const nova=id==="nova", p=nova?{nome:"",cargo:"",cargosExtra:[],ramo:"",email:"",telemovel:""}:BD.pessoasCR.find(x=>x.id===id);
@@ -1512,7 +1643,7 @@ function crCompanhias(){
     </td></tr>`:""}`}).join("");
   const recado=(BD.config?.recado||"");
   return `<div class="topo"><div class="running" style="text-align:right">Comissariado Regional<span>Companhias</span></div></div>
-  <div class="cabecalho"><div><div class="num">${String(COMPANHIAS.length).padStart(2,"0")}</div><span class="rule"></span><h1>Companhias</h1><p>Uma linha por companhia. Verde está feito, amarelo está à espera de alguém, vermelho está em falta. Carrega no nome para ver o que falta.</p></div></div>
+  <div class="cabecalho"><div><div class="num">${String(COMPANHIAS.length).padStart(2,"0")}</div><span class="rule"></span><h1>Companhias</h1><p>Uma linha por companhia. Verde está feito, amarelo está à espera de alguém, vermelho está em falta. Carrega no nome para ver o que falta.</p></div><button class="btn" id="exportarFaturas">Exportar faturas para Excel</button></div>
   <div class="cr-barra">
     <div><span class="n">${dados.reduce((a,d)=>a+d.tot,0)}</span><span class="l">Elementos nos censos</span></div>
     <div><span class="n">${dados.reduce((a,d)=>a+d.ps,0)}</span><span class="l">Dirigentes na patrulha</span></div>
@@ -1578,9 +1709,10 @@ function crAtividade(a){
   const custo=a.custoGuia||a.custoDirigente?[a.custoGuia?eur(a.custoGuia)+" por guia":"",a.custoDirigente?eur(a.custoDirigente)+" por dirigente":""].filter(Boolean).join(" · "):"Sem custo";
   return `${migalhas([["Atividades","#/cr/atividades"],[a.nome]])}
   <div class="cabecalho"><div><span class="rotulo" style="color:var(--azul-claro)">${publicoTexto(a)}</span><span class="rule" style="margin-top:10px"></span><h1>${esc(a.nome)}</h1>${a.descricao?`<p>${esc(a.descricao)}</p>`:""}</div><button class="btn pequeno" data-cr-editar-ativ="${a.id}">Editar atividade</button></div>
+  ${extrasAtiv(a)}
   <div class="ativ-factos">
-    <div><span class="rotulo">Quando</span><b>${dataTexto(a)}</b></div>
-    <div><span class="rotulo">Onde</span><b>${esc(a.local)}</b></div>
+    <div><span class="rotulo">Quando</span><b>${dataTexto(a)}</b>${horasTexto(a)?`<span class="sub">${horasTexto(a)}</span>`:""}</div>
+    <div><span class="rotulo">Onde</span><b>${esc(a.local)}</b>${a.mapa?`<a class="sub" href="${esc(a.mapa)}" target="_blank" rel="noopener" style="color:var(--azul-claro)">Ver no mapa</a>`:""}${a.farda?`<span class="sub">${esc(a.farda)}</span>`:""}</div>
     <div><span class="rotulo">Confirmar até</span><b>${fmt(a.prazo)}</b><span class="sub">${passou(a.prazo)?"Prazo terminado":`Faltam ${diasAte(a.prazo)} dias`}</span></div>
     <div><span class="rotulo">Custo</span><b>${custo}</b></div>
   </div>
@@ -1617,7 +1749,8 @@ function acaoCR(acao,id,compId){
   const t=BD.tesouraria[compId], cn=comp(compId).nome, feito=m=>{guardar();fechar();desenhar();toast(m)};
   const fat=()=>t.faturas.find(f=>f.id===id), reemb=()=>t.reembolsos.find(r=>r.id===id), emp=()=>BD.emprestimos.find(e=>e.id===id);
   switch(acao){
-    case "aceitarFatura": janelaCR("Aceitar fatura",cn+" · "+fat().ficheiro,`<label class="inteiro" for="cr-valor">Valor da fatura (€)<input type="number" id="cr-valor" min="0" step="0.01"></label>`,"Aceitar",()=>{const v=parseFloat($("#cr-valor").value);if(!(v>0)){toast("Indiquem o valor da fatura");return}Object.assign(fat(),{estado:"aceite",valor:v});feito("Fatura aceite")});break;
+    case "abrirDoc": abrirDocumento(id); break;
+    case "aceitarFatura": janelaCR("Aceitar fatura",cn+" · "+fat().ficheiro,`<label class="inteiro" for="cr-valor">Valor da fatura (€)<input type="number" id="cr-valor" min="0" step="0.01" value="${fat().valor!=null?fat().valor:""}"></label>${fat().valor!=null?`<div class="caixa inteiro">Valor indicado pela companhia${fat().caminho?", depois de ler a imagem":""}. Confirmem contra a fatura.</div>`:""}`,"Aceitar",()=>{const v=parseFloat($("#cr-valor").value);if(!(v>0)){toast("Indiquem o valor da fatura");return}Object.assign(fat(),{estado:"aceite",valor:v});feito("Fatura aceite")});break;
     case "devolverFatura": janelaCR("Devolver fatura",cn+" · "+fat().ficheiro,`<label class="inteiro" for="cr-motivo">Motivo (a companhia vai ver este texto)<textarea id="cr-motivo" rows="3"></textarea></label>`,"Devolver",()=>{const m=$("#cr-motivo").value.trim();if(!m){toast("Escrevam o motivo");return}Object.assign(fat(),{estado:"devolvida",motivo:m});feito("Fatura devolvida à companhia")});break;
     case "papelRecebido": fat().papel={data:iso(HOJE)};feito("Fatura marcada como recebida em papel");break;
     case "confirmarQuota": t.quotas.find(q=>q.id===id).estado="confirmado";feito("Pagamento de quotas confirmado");break;
@@ -1637,7 +1770,7 @@ function acaoCR(acao,id,compId){
   }
 }
 function janelaNovaAtividade(ed){
-  const v=ed||{nome:"",descricao:"",publico:{ramos:[],dirigentes:true},data:"",dataFim:"",local:"",prazo:"",custoGuia:0,custoDirigente:0};
+  const v=ed||{nome:"",descricao:"",publico:{ramos:[],dirigentes:true},data:"",dataFim:"",local:"",prazo:"",custoGuia:0,custoDirigente:0,horaInicio:"",horaFim:"",farda:"",mapa:"",texto:"",material:"",materialEspecifico:"",recados:"",inscricoesLink:""};
   janelaCR(ed?"Editar atividade":"Criar atividade","Atividades",`
     <label class="inteiro" for="na-nome">Nome<input id="na-nome" value="${esc(v.nome)}" placeholder="Ex.: Atividade Regional de Aventura"></label>
     <label class="inteiro" for="na-desc">Descrição<input id="na-desc" value="${esc(v.descricao)}"></label>
@@ -1645,9 +1778,20 @@ function janelaNovaAtividade(ed){
     <div class="inteiro checks">${RAMOS_CENSOS.map(r=>`<label class="conf-nome"><input type="checkbox" class="na-ramo" value="${r}" ${v.publico.ramos.includes(r)?"checked":""}><span>Ramo ${r}</span></label>`).join("")}<label class="conf-nome"><input type="checkbox" id="na-dir" ${v.publico.dirigentes?"checked":""}><span>Dirigentes</span></label></div>
     <label for="na-data">Data<input type="date" id="na-data" value="${v.data}"></label><label for="na-fim">Data de fim (se durar mais de um dia)<input type="date" id="na-fim" value="${v.dataFim||""}"></label>
     <label for="na-local">Local<input id="na-local" value="${esc(v.local==="A indicar pelo CR"?"":v.local)}"></label><label for="na-prazo">Confirmar até<input type="date" id="na-prazo" value="${v.prazo}"></label>
+    <label for="na-hi">Hora de entrada<input type="time" id="na-hi" value="${esc(v.horaInicio||"")}"></label><label for="na-hf">Hora de saída<input type="time" id="na-hf" value="${esc(v.horaFim||"")}"></label>
+    <label for="na-farda">Farda<input id="na-farda" value="${esc(v.farda||"")}" placeholder="Ex.: Farda de campo"></label><label for="na-mapa">Link do mapa<input id="na-mapa" value="${esc(v.mapa||"")}" placeholder="https://maps.app.goo.gl/…"></label>
     <label for="na-cg">Custo por guia (€)<input type="number" id="na-cg" min="0" step="0.5" value="${v.custoGuia}"></label><label for="na-cd">Custo por dirigente (€)<input type="number" id="na-cd" min="0" step="0.5" value="${v.custoDirigente}"></label>
+    <span class="rotulo inteiro" style="color:var(--azul)">Convocatória e recados (aparecem na página da atividade)</span>
+    <label class="inteiro" for="na-texto">Convocatória<textarea id="na-texto" rows="6" placeholder="O texto que enviam às companhias">${esc(v.texto||"")}</textarea></label>
+    <label class="inteiro" for="na-material">O que levar<textarea id="na-material" rows="3" placeholder="Uma coisa por linha">${esc(v.material||"")}</textarea></label>
+    <label class="inteiro" for="na-mate">Material específico<input id="na-mate" value="${esc(v.materialEspecifico||"")}" placeholder="Ex.: algo que te faça lembrar a tua primeira memória nas Guias"></label>
+    <label class="inteiro" for="na-recados">Recados importantes<textarea id="na-recados" rows="3">${esc(v.recados||"")}</textarea></label>
+    <label class="inteiro" for="na-insc">Formulário de inscrição (se as inscrições forem feitas fora da plataforma)<input id="na-insc" value="${esc(v.inscricoesLink||"")}" placeholder="https://forms.cloud.microsoft/…"></label>
     ${ed?`<div class="caixa inteiro">As companhias veem logo as alterações. Se mudarem o custo, o valor a pagar das inscrições já feitas é recalculado.</div>`:""}`,ed?"Guardar":"Criar",()=>{
-    const ramos=[...document.querySelectorAll(".na-ramo:checked")].map(x=>x.value), a={nome:$("#na-nome").value.trim(),descricao:$("#na-desc").value.trim(),publico:{ramos,dirigentes:$("#na-dir").checked},data:$("#na-data").value,dataFim:$("#na-fim").value||null,local:$("#na-local").value.trim()||"A indicar pelo CR",prazo:$("#na-prazo").value,custoGuia:+$("#na-cg").value||0,custoDirigente:+$("#na-cd").value||0};
+    const ramos=[...document.querySelectorAll(".na-ramo:checked")].map(x=>x.value), a={nome:$("#na-nome").value.trim(),descricao:$("#na-desc").value.trim(),publico:{ramos,dirigentes:$("#na-dir").checked},data:$("#na-data").value,dataFim:$("#na-fim").value||null,local:$("#na-local").value.trim()||"A indicar pelo CR",prazo:$("#na-prazo").value,custoGuia:+$("#na-cg").value||0,custoDirigente:+$("#na-cd").value||0,
+      horaInicio:$("#na-hi").value,horaFim:$("#na-hf").value,farda:$("#na-farda").value.trim(),mapa:$("#na-mapa").value.trim(),
+      texto:$("#na-texto").value.trim(),material:$("#na-material").value.trim(),materialEspecifico:$("#na-mate").value.trim(),
+      recados:$("#na-recados").value.trim(),inscricoesLink:$("#na-insc").value.trim()};
     if(!a.nome||!a.data||!a.prazo){toast("Preencham o nome, a data e o prazo de confirmação");return}
     if(!ramos.length&&!a.publico.dirigentes){toast("Escolham para quem é a atividade");return}
     if(a.prazo>a.data){toast("O prazo de confirmação tem de ser antes da atividade");return}
@@ -1762,6 +1906,98 @@ function estadoGravacao(texto, erro){
   el.style.color = erro ? "#b3261e" : "#5b6472";
   el.style.borderColor = erro ? "#f2b8b5" : "#d7dee8";
   el.hidden = !texto;
+}
+
+/* ---------- arquivo de documentos, leitor de faturas e Excel ---------- */
+const guiaoCarregado = new Set();
+function carregarGuiao(url){
+  if(guiaoCarregado.has(url)) return Promise.resolve();
+  return new Promise((ok, falha) => {
+    const el = document.createElement("script");
+    el.src = url; el.async = true;
+    el.onload = () => { guiaoCarregado.add(url); ok() };
+    el.onerror = () => falha(new Error("Não consegui carregar o leitor. Confirmem a ligação à internet."));
+    document.head.appendChild(el);
+  });
+}
+async function arquivar(ficheiro, tipo){
+  const dono = E.comp || "cr";
+  const nome = Date.now() + "-" + Math.random().toString(36).slice(2,6) + "-" + ficheiro.name.normalize("NFD").replace(/[\u0300-\u036f]/g,"").replace(/[^\w.\-]+/g,"_");
+  const caminho = dono + "/" + tipo + "/" + ANO + "/" + nome;
+  const {error} = await sb.storage.from("documentos").upload(caminho, ficheiro, {upsert:false, contentType: ficheiro.type || undefined});
+  if(error) throw new Error("Não consegui guardar o ficheiro no arquivo: " + error.message);
+  return caminho;
+}
+async function abrirDocumento(caminho){
+  if(!caminho){ toast("Esta fatura foi submetida antes do arquivo existir, por isso não há ficheiro para abrir."); return }
+  const {data, error} = await sb.storage.from("documentos").createSignedUrl(caminho, 300);
+  if(error){ toast("Não consegui abrir o ficheiro: " + error.message); return }
+  window.open(data.signedUrl, "_blank", "noopener");
+}
+const nomeDoc = x => typeof x === "string" ? x : (x && x.ficheiro) || "";
+const camDoc  = x => typeof x === "string" ? "" : (x && x.caminho) || "";
+const botaoDoc = (x, texto) => camDoc(x) ? `<button class="btn texto pequeno" data-abrir="${esc(camDoc(x))}">${texto||"Abrir"}</button>` : "";
+async function comEnvio(id, trabalho, mensagem){
+  const b = $(id); if(!b) return;
+  const txt = b.textContent; b.disabled = true; b.textContent = "A enviar…";
+  try{ await trabalho(); guardar(); fechar(); desenhar(); toast(mensagem) }
+  catch(e){ b.disabled = false; b.textContent = txt; toast(e.message) }
+}
+function interpretarFatura(texto){
+  const t = String(texto||"").replace(/\u00a0/g, " ");
+  const achaValores = tx => [...tx.matchAll(/(\d{1,3}(?:[ .]\d{3})*|\d+)\s*[,.]\s*(\d{2})(?!\d)/g)]
+    .map(m => ({valor: parseFloat(m[1].replace(/[ .]/g,"") + "." + m[2]), fim: m.index + m[0].length}))
+    .filter(x => x.valor > 0 && x.valor < 100000);
+  const todos = achaValores(t);
+  let valor = null;
+  /* primeiro, um valor logo a seguir a "total a pagar", "total" ou "valor" */
+  const chaves = [...t.matchAll(/total\s*a\s*pagar|total\s*geral|valor\s*total|total|valor\s*a\s*pagar/gi)];
+  for(const c of chaves.reverse()){
+    const seguir = t.slice(c.index, c.index + 60);
+    const v = achaValores(seguir)[0];
+    if(v){ valor = v.valor; break }
+  }
+  /* se não houver palavra-chave, fica o maior valor da fatura */
+  if(valor == null && todos.length) valor = Math.max(...todos.map(x => x.valor));
+  let data = "";
+  const d1 = t.match(/(\d{1,2})\s*[\/\-.]\s*(\d{1,2})\s*[\/\-.]\s*(\d{4})/);
+  const d2 = t.match(/(\d{4})\s*[\/\-.]\s*(\d{1,2})\s*[\/\-.]\s*(\d{1,2})/);
+  const dois = n => String(n).padStart(2,"0");
+  if(d1 && +d1[2] >= 1 && +d1[2] <= 12) data = d1[3] + "-" + dois(d1[2]) + "-" + dois(d1[1]);
+  else if(d2 && +d2[2] >= 1 && +d2[2] <= 12) data = d2[1] + "-" + dois(d2[2]) + "-" + dois(d2[3]);
+  if(data && (data > iso(HOJE) || data < (ANO-2) + "-01-01")) data = "";
+  return {valor, data};
+}
+async function lerFatura(ficheiro, aoProgresso){
+  await carregarGuiao("https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tesseract.min.js");
+  const r = await Tesseract.recognize(ficheiro, "por", {
+    logger: m => { if(m.status === "recognizing text" && aoProgresso) aoProgresso(Math.round((m.progress||0)*100)) }
+  });
+  return interpretarFatura(r.data.text);
+}
+async function exportarFaturas(){
+  const L = [];
+  COMPANHIAS.forEach(c => (BD.tesouraria[c.id]?.faturas || []).forEach(f => L.push({
+    Companhia: NOME_EXCEL[c.id] || c.nome,
+    "Mês da despesa": f.mes ? nomeMesLongo(f.mes) : "",
+    Categoria: f.categoria || "",
+    Ficheiro: f.ficheiro || "",
+    "Data da fatura": f.dataFatura ? fmt(f.dataFatura) : "",
+    "Enviada a": f.data ? fmt(f.data) : "",
+    "Valor (EUR)": f.valor != null ? f.valor : "",
+    Estado: ({analise:"Em análise", aceite:"Aceite", devolvida:"Devolvida"})[f.estado] || f.estado,
+    "Entregue em papel": f.papel ? fmt(f.papel.data) : "",
+    "Motivo da devolução": f.motivo || ""
+  })));
+  if(!L.length){ toast("Ainda não há faturas submetidas."); return }
+  toast("A preparar o Excel…");
+  await carregarGuiao("https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js");
+  const ws = XLSX.utils.json_to_sheet(L);
+  ws["!cols"] = [{wch:26},{wch:16},{wch:14},{wch:28},{wch:14},{wch:12},{wch:12},{wch:12},{wch:16},{wch:34}];
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, "Faturas");
+  XLSX.writeFile(wb, "Faturas " + anoGuidista(ANO).replace("/","-") + ".xlsx");
+  toast(L.length + (L.length===1?" fatura exportada":" faturas exportadas"));
 }
 
 const tesVazia = () => ({iban:"",titulares:[],comprovativo:null,subsidios:[],faturas:[],orcamento:[],orcamentoFicheiro:null,reembolsos:[],admissoes:[],quotas:[]});
@@ -2170,17 +2406,21 @@ function janelaFicha(p){
   };
 }
 function janelaRegisto(p){
-  janela(`<header><div class="running" style="color:var(--azul-claro)">Registo criminal<span style="color:var(--tinta-3)">${esc(comp(E.comp).nome)}</span></div><h2>${esc(p.nome)}</h2></header>
+  janela(cabecJanela("Registo criminal",esc(p.nome))+`
     <div class="corpo" style="display:grid;gap:16px">
-      <div class="ficheiro"><b style="color:var(--azul);font-weight:600">Escolhe o documento</b><span>PDF ou fotografia do registo criminal</span><input type="file" id="ficheiro" accept=".pdf,image/*"></div>
-      <div class="caixa">O documento vai diretamente para a pasta do CR. Depois de submetido, a companhia deixa de o conseguir ver ou alterar.</div>
+      <div class="caixa">O registo criminal <b>não é carregado para a plataforma</b>. É enviado por email ao Comissariado Regional, para <b>${CR_CONTA.email}</b>, e aqui fica apenas a marca de que foi entregue e em que data.</div>
+      <form class="form" novalidate>
+        <label class="inteiro" for="rc-data">Data em que foi enviado ao CR<input type="date" id="rc-data" value="${iso(HOJE)}" max="${iso(HOJE)}"></label>
+      </form>
     </div>
-    <div class="rodape"><button class="btn" id="cancelar">Cancelar</button><button class="btn primario" id="submeter">Submeter</button></div>`,"simples");
+    <div class="rodape"><button class="btn" id="cancelar">Cancelar</button><button class="btn primario" id="submeter">Marcar como entregue</button></div>`,"simples");
   $("#cancelar").onclick=fechar;
   $("#submeter").onclick=()=>{
-    const f=$("#ficheiro").files[0];
-    if(!f){toast("Escolhe primeiro o ficheiro do registo criminal");return}
-    p.registo={ficheiro:f.name,data:iso(HOJE)};registar("Registos criminais","Submeteu o registo criminal de "+p.nome);guardar();fechar();desenhar();toast("Registo criminal submetido");
+    const d=$("#rc-data").value;
+    if(!d){toast("Indiquem a data em que enviaram o registo ao CR");return}
+    p.registo={ficheiro:"Entregue ao CR",data:d};
+    registar("Registos criminais","Marcou o registo criminal de "+p.nome+" como entregue ao CR");
+    guardar();fechar();desenhar();toast("Registo criminal marcado como entregue");
   };
 }
 
@@ -2203,6 +2443,10 @@ document.addEventListener("click",e=>{
   if(d.filtroTipo!==undefined){E.crFiltro={...(E.crFiltro||{comp:""}),tipo:d.filtroTipo};desenhar();return}
   if(d.crNovaAtiv!==undefined){janelaNovaAtividade();return}
   if(d.crPessoa){janelaPessoaCR(d.crPessoa);return}
+  if(d.abrir){abrirDocumento(d.abrir);return}
+  if(b.id==="exportarContactos"){exportarContactos().catch(e=>toast(e.message));return}
+  if(b.id==="ctLimpar"){E.crCt={comp:"",cargo:"",ramo:"",procura:""};desenhar();return}
+  if(b.id==="exportarFaturas"){exportarFaturas().catch(e=>toast(e.message));return}
   if(d.linha){E.crAberta=E.crAberta===d.linha?null:d.linha;desenhar();return}
   if(d.ordenar){const o=E.crOrd||{c:"prob",d:-1};E.crOrd={c:d.ordenar,d:o.c===d.ordenar?-o.d:(d.ordenar==="nome"?1:-1)};desenhar();return}
   if(b.id==="guardarRecado"){BD.config=BD.config||{};BD.config.recado=$("#recado-txt").value.trim();guardar();desenhar();toast(BD.config.recado?"Recado guardado. As companhias veem-no quando entram.":"Recado retirado.");return}
@@ -2236,7 +2480,8 @@ document.addEventListener("click",e=>{
 document.addEventListener("change",e=>{
   const el=e.target;
   if(el.dataset?.papelCr){const [c,f]=el.dataset.papelCr.split("|");BD.tesouraria[c].faturas.find(x=>x.id===f).papel={data:iso(HOJE)};guardar();desenhar();const d=$(".papel-lista");if(d)d.open=true;toast("Fatura marcada como recebida em papel");return}
-  if(el.id==="filtro-ct"){E.crFiltroCt=el.value;desenhar();return}
+  if(el.id==="ct-comp"||el.id==="ct-cargo"||el.id==="ct-ramo"){const k=el.id.slice(3);E.crCt={comp:"",cargo:"",ramo:"",procura:"",...(E.crCt||{}),[k]:el.value};desenhar();return}
+  if(el.id==="ct-procura"){filtrarContactos(el.value);return}
   if(el.id==="filtro-al"){E.crFiltroAl=el.value;desenhar();return}
   if(el.id==="filtro-comp"){E.crFiltro={...(E.crFiltro||{tipo:""}),comp:el.value};desenhar();return}
   if(el.matches&&el.matches("[data-chave]")&&E.rascunho){const s=E.rascunho[el.dataset.chave]; el.checked?s.add(el.value):s.delete(el.value);
@@ -2248,7 +2493,17 @@ document.addEventListener("change",e=>{
   registar("Orçamento","Atualizou o orçamento",true);
   guardar(); atualizarOrcamento();
 });
+function filtrarContactos(texto){
+  E.crCt={comp:"",cargo:"",ramo:"",procura:"",...(E.crCt||{}),procura:texto};
+  const v=texto.trim().toLowerCase(), corpo=document.querySelector(".tabela-ct tbody");
+  if(!corpo) return;
+  let visiveis=0;
+  [...corpo.rows].forEach(tr=>{ const bate = !v || tr.textContent.toLowerCase().includes(v); tr.hidden = !bate; if(bate) visiveis++ });
+  const r=$("#ct-resumo");
+  if(r) r.textContent = visiveis + (visiveis===1?" linha":" linhas") + (v?" com esta procura":"") + ". Atualiza-se sozinho quando as companhias mudam as fichas da patrulha.";
+}
 document.addEventListener("input",e=>{
+  if(e.target.id==="ct-procura"){filtrarContactos(e.target.value);return}
   if(e.target.id==="r-obs"&&E.rascunho)E.rascunho.obs=e.target.value;
   const k=e.target.dataset?.pedido; if(k&&E.pedido){E.pedido[k]=e.target.value; if(["usoI","usoF"].includes(k)){ if(k==="usoI"&&$("#p-usoF"))$("#p-usoF").min=e.target.value; atualizarPedido()} else atualizarPedido(true)}
 });
