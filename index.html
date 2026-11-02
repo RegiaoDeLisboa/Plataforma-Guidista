@@ -2323,6 +2323,7 @@ async function carregar(nomes){
     const r2 = await sb.from("pessoas").select("*").in("comp", comps);
     if(r2.error) throw new Error("Não consegui ler a patrulha: " + r2.error.message);
     BD.pessoas = (r2.data || []).map(linhaParaPessoa);
+    if(BD.pessoas.some(p => !p.id)) throw new Error("A base de dados devolveu fichas da patrulha sem identificador. Não mexam na Patrulha e avisem o Comissariado Regional: falta a coluna id na tabela pessoas.");
   }
   pessoasGuardadas = new Map(BD.pessoas.map(p => [p.id, JSON.stringify(pessoaParaLinha(p))]));
   const rPz = await sb.from("prazos").select("chave, data");
@@ -2351,10 +2352,10 @@ function guardar(){
 }
 async function gravarPessoas(){
   BD.pessoas.forEach(p => {
-    if(!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(String(p.id))){
-      p.id = crypto.randomUUID();
-    }
+    if(!p.id || /^p\d+$/.test(String(p.id))) p.id = crypto.randomUUID();
   });
+  const semId = BD.pessoas.filter(p => !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(String(p.id)));
+  if(semId.length) throw new Error("Há fichas da patrulha com identificador inválido. Avisem o Comissariado Regional antes de continuar.");
   const minhas = BD.pessoas.filter(p => E.cr || p.comp === E.comp);
   const porGravar = [];
   minhas.forEach(p => {
