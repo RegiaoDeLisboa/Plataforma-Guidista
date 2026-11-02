@@ -2417,19 +2417,21 @@ async function gravarConfig(){
 async function gravar(){
   if(!BD) return;
   estadoGravacao("A gravar…");
-  await gravarPessoas();
-  await gravarCR();
-  await gravarPrazos();
-  await gravarConfig();
+  /* Cada parte grava por si. Se uma falhar, as outras gravam na mesma e no fim dizemos qual falhou. */
+  const falhas = [];
+  for(const parte of [gravarPessoas, gravarCR, gravarPrazos, gravarConfig]){
+    try{ await parte() }catch(e){ falhas.push(e.message) }
+  }
   const alvos = E.cr ? ["cr", ...COMPANHIAS.map(c => c.id)] : [E.comp];
   for(const n of alvos){
     if(!n) continue;
     const texto = JSON.stringify(fatia(n));
     if(texto === guardado[n]) continue;
     const {error} = await sb.from("dados").update({conteudo: JSON.parse(texto)}).eq("comp", n);
-    if(error) throw new Error("Não consegui gravar: " + error.message);
+    if(error){ falhas.push("Não consegui gravar os dados da companhia: " + error.message); continue }
     guardado[n] = texto;
   }
+  if(falhas.length) throw new Error(falhas.join(" · "));
   const agora = new Date();
   estadoGravacao("Guardado às " + String(agora.getHours()).padStart(2,"0") + ":" + String(agora.getMinutes()).padStart(2,"0"));
 }
