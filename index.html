@@ -484,6 +484,12 @@ a.ativ-cartao{text-decoration:none;color:inherit;grid-template-columns:auto minm
 .troca-vista button[aria-selected="true"]{background:var(--azul);color:#fff;font-weight:600}
 .aviso-env{background:rgba(255,255,255,.10);border:1px solid rgba(255,255,255,.25)}
 .aviso-env .nome{font-size:12.5px}
+.acamp-form .caixa{margin-top:4px}
+.ac-ramos{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
+.ac-ramos label{display:grid;gap:6px}
+.ac-barras{display:flex;gap:14px;flex-wrap:wrap;border-top:1px solid var(--azul-10);margin-top:10px;padding-top:10px;font-size:13px;color:var(--tinta-2)}
+.ac-barras b{color:var(--tinta)}
+@media (max-width:760px){.ac-ramos{grid-template-columns:repeat(2,1fr)}}
 .opcoes-emp{display:grid;gap:7px;margin:2px 0 4px}
 .opc-linha,.opc-cab{display:grid;grid-template-columns:16px 1.25fr 86px 86px 1.4fr;gap:8px;align-items:center}
 .opc-cab span{font-size:10.5px;letter-spacing:1px;text-transform:uppercase;color:var(--tinta-3)}
@@ -1305,6 +1311,132 @@ function disponivel(idMat,de,ate,ignorar){
 function resumoItens(e){return e.itens.map(i=>`${i.qtd} × ${mat(i.id).nome}`).join(" · ")}
 function migalhas(passos){return `<nav class="migalhas" aria-label="Estás aqui">${passos.map((p,i)=>i<passos.length-1?`<a href="${p[1]}">${esc(p[0])}</a><svg width="7" height="11" viewBox="0 0 7 11" aria-hidden="true"><path d="M1 1l4.5 4.5L1 10" fill="none" stroke="currentColor" stroke-width="1.5"/></svg>`:`<span aria-current="page">${esc(p[0])}</span>`).join("")}</nav>`}
 
+/* ================= Acampamentos e acantonamentos ================= */
+const TIPO_AC = ["Acampamento","Acantonamento"];
+const acampVazio = () => ({tipo:"Acampamento", nome:"", inicio:"", fim:"", local:"", freguesia:"", concelho:"", responsavel:"", contacto:"", guias:{}, dirCom:0, dirSem:0, obs:""});
+const acampsDe = id => (BD.acampamentos||[]).filter(a => a.comp === id).sort((x,y)=>(y.inicio||"").localeCompare(x.inicio||""));
+const totalGuias = a => RAMOS_CENSOS.reduce((t,r)=>t+(+a.guias?.[r]||0),0);
+const totalDir = a => (+a.dirCom||0)+(+a.dirSem||0);
+const noitesAc = a => { if(!a.inicio||!a.fim) return 0; return Math.max(0, Math.round((new Date(a.fim)-new Date(a.inicio))/86400000)) };
+function sitioAc(a){ return [a.local, [a.freguesia, a.concelho].filter(Boolean).join(", ")].filter(Boolean).join(" · ") }
+
+function formAcamp(a){
+  const nomes = pessoas().map(p=>p.nome);
+  const num = (id,v,rot) => `<label for="${id}">${rot}<input type="number" min="0" step="1" id="${id}" value="${v||0}"></label>`;
+  return `<form class="form acamp-form" id="acampForm" autocomplete="off">
+    <label for="ac-tipo">O que é<select id="ac-tipo">${TIPO_AC.map(t=>`<option ${a.tipo===t?"selected":""}>${t}</option>`).join("")}</select></label>
+    <label for="ac-nome">Nome (opcional)<input id="ac-nome" value="${esc(a.nome)}" placeholder="Ex.: Acampamento de Páscoa"></label>
+    <label for="ac-inicio">Começa<input type="date" id="ac-inicio" value="${a.inicio}"></label>
+    <label for="ac-fim">Acaba<input type="date" id="ac-fim" value="${a.fim}"></label>
+    <label class="inteiro" for="ac-local">Onde dormem<input id="ac-local" value="${esc(a.local)}" placeholder="Ex.: Campo de Férias de Bucelas, Casa Paroquial de ..."></label>
+    <label for="ac-freguesia">Freguesia<input id="ac-freguesia" value="${esc(a.freguesia)}" placeholder="Ex.: Bucelas"></label>
+    <label for="ac-concelho">Concelho<input id="ac-concelho" value="${esc(a.concelho)}" placeholder="Ex.: Loures"></label>
+    <label for="ac-resp">Chefe responsável<input id="ac-resp" list="ac-nomes" value="${esc(a.responsavel)}" placeholder="Nome de quem fica responsável">
+      <datalist id="ac-nomes">${nomes.map(n=>`<option value="${esc(n)}"></option>`).join("")}</datalist></label>
+    <label for="ac-contacto">Contacto<input id="ac-contacto" inputmode="tel" value="${esc(a.contacto)}" placeholder="Telemóvel"></label>
+    <span class="rotulo inteiro" style="color:var(--azul);margin-top:6px">Quantas guias vão, por ramo</span>
+    <div class="ac-ramos inteiro">${RAMOS_CENSOS.map(r=>`<label for="ac-g-${r}"><span class="ramo"><i style="background:${RAMOS[r]}"></i>${r}</span><input type="number" min="0" step="1" id="ac-g-${r}" value="${a.guias?.[r]||0}"></label>`).join("")}</div>
+    <span class="rotulo inteiro" style="color:var(--azul);margin-top:6px">Quantas dirigentes vão</span>
+    ${num("ac-dircom", a.dirCom, "Com compromisso")}
+    ${num("ac-dirsem", a.dirSem, "Sem compromisso")}
+    <label class="inteiro" for="ac-obs">Mais alguma coisa (opcional)<textarea id="ac-obs" rows="2" placeholder="Ex.: vamos partilhar o campo com outra companhia">${esc(a.obs)}</textarea></label>
+    <div class="caixa inteiro">Isto é para o Comissariado Regional saber onde estão as vossas guias e quem é a responsável. Não é um pedido: fica logo registado.</div>
+    <div class="acoes inteiro"><button type="button" class="btn texto" id="acampCancelar">Cancelar</button><button type="button" class="btn primario" id="acampGuardar">Guardar</button></div>
+  </form>`;
+}
+function lerAcamp(){
+  const v = id => $("#"+id).value.trim();
+  const n = id => Math.max(0, parseInt($("#"+id).value,10)||0);
+  const guias = {}; RAMOS_CENSOS.forEach(r => guias[r] = Math.max(0, parseInt($("#ac-g-"+r).value,10)||0));
+  return {tipo:$("#ac-tipo").value, nome:v("ac-nome"), inicio:v("ac-inicio"), fim:v("ac-fim"),
+    local:v("ac-local"), freguesia:v("ac-freguesia"), concelho:v("ac-concelho"),
+    responsavel:v("ac-resp"), contacto:v("ac-contacto"), guias, dirCom:n("ac-dircom"), dirSem:n("ac-dirsem"), obs:v("ac-obs")};
+}
+function guardarAcamp(){
+  const d = lerAcamp();
+  if(!d.inicio||!d.fim){ toast("Faltam as datas."); return }
+  if(d.fim < d.inicio){ toast("A data de fim é antes da de início."); return }
+  if(!d.local){ toast("Falta dizer onde dormem."); return }
+  if(!d.responsavel){ toast("Falta a chefe responsável."); return }
+  if(!totalGuias(d)){ toast("Falta dizer quantas guias vão."); return }
+  BD.acampamentos = BD.acampamentos || [];
+  const titulo = d.tipo + (d.nome?" · "+d.nome:"") + ", " + fmt(d.inicio) + " a " + fmt(d.fim) + ", " + sitioAc(d) + " · " + totalGuias(d) + " guias e " + totalDir(d) + " dirigentes · responsável: " + d.responsavel + (d.contacto?" ("+d.contacto+")":"");
+  if(E.acampForm === "novo"){
+    BD.acampamentos.push({id:"ac"+Date.now(), comp:E.comp, criado:iso(HOJE), ...d});
+    registar("Acampamentos", "Declarou um "+titulo.toLowerCase().slice(0,1)+titulo.slice(1));
+    toast("Acampamento registado. O CR já o vê.");
+  }else{
+    const a = BD.acampamentos.find(x=>x.id===E.acampForm);
+    if(!a) return;
+    Object.assign(a, d);
+    registar("Acampamentos", "Atualizou os dados de um "+titulo.toLowerCase().slice(0,1)+titulo.slice(1));
+    toast("Dados atualizados.");
+  }
+  E.acampForm = null; guardar(); desenhar();
+}
+function cartaoAcamp(a, comCR){
+  const fut = !passou(a.fim);
+  return `<article class="emp-cartao">
+    <div class="emp-topo"><div><span class="rotulo">${esc(a.tipo)}${a.nome?" · "+esc(a.nome):""}</span><h3>${fmt(a.inicio)} a ${fmt(a.fim)}</h3></div><span class="estado ${fut?"ok":"analise"}">${fut?(noitesAc(a)||1)+" "+((noitesAc(a)||1)===1?"noite":"noites"):"Já foi"}</span></div>
+    <div class="emp-datas">
+      <div><span class="rotulo">Onde dormem</span><b>${esc(a.local)}</b><span>${esc([a.freguesia,a.concelho].filter(Boolean).join(", "))||"—"}</span></div>
+      <div><span class="rotulo">Responsável</span><b>${esc(a.responsavel)}</b><span>${esc(a.contacto)||"sem contacto"}</span></div>
+      <div><span class="rotulo">Vão</span><b>${totalGuias(a)} ${totalGuias(a)===1?"guia":"guias"}</b><span>${totalDir(a)} ${totalDir(a)===1?"dirigente":"dirigentes"} (${a.dirCom||0} c/ compromisso, ${a.dirSem||0} s/ compromisso)</span></div>
+    </div>
+    <div class="ac-barras">${RAMOS_CENSOS.filter(r=>+a.guias?.[r]).map(r=>`<span class="ramo"><i style="background:${RAMOS[r]}"></i>${r}: <b>${a.guias[r]}</b></span>`).join("")||'<span class="sub">Sem guias indicadas</span>'}</div>
+    ${a.obs?`<p class="emp-nota">${esc(a.obs)}</p>`:""}
+    ${comCR?"":`<div class="acoes" style="justify-content:flex-start"><button class="btn pequeno" data-acamp-editar="${a.id}">Alterar</button><button class="btn texto pequeno" data-acamp-apagar="${a.id}" style="color:var(--alerta)">Apagar</button></div>`}
+  </article>`;
+}
+function vistaAcampamentos(){
+  const c = comp(E.comp), todos = acampsDe(E.comp);
+  const porVir = todos.filter(a=>!passou(a.fim)), passados = todos.filter(a=>passou(a.fim));
+  const emEdicao = E.acampForm && E.acampForm !== "novo" ? BD.acampamentos.find(x=>x.id===E.acampForm) : null;
+  return `<div class="topo"><div class="running" style="text-align:right">${esc(c.nome)}<span>Acampamentos</span></div></div>
+  <div class="cabecalho"><div><div class="num">06</div><span class="rule"></span><h1>Acampamentos</h1><p>Sempre que forem acampar ou acantonar, deixem aqui os dias, o sítio onde dormem, quem é a chefe responsável e quantas vão. O Comissariado Regional precisa de saber onde estão as vossas guias.</p></div>
+    ${E.acampForm||E.cr?"":`<button class="btn primario" id="acampNovo">Declarar acampamento</button>`}</div>
+  ${E.acampForm&&!E.cr?`<section class="seccao"><div class="barra-tabela"><div><h3>${emEdicao?"Alterar":"Novo acampamento ou acantonamento"}</h3></div></div>${formAcamp(emEdicao||acampVazio())}</section>`:""}
+  <section class="seccao ${E.acampForm&&!E.cr?"espaco":""}"><div class="barra-tabela"><div><h3>Por vir</h3></div></div>
+    ${porVir.length?`<div class="emp-lista">${porVir.map(a=>cartaoAcamp(a,E.cr)).join("")}</div>`:`<p class="vazio" style="text-align:left;padding:0;color:var(--tinta-3)">Não há nada marcado.</p>`}</section>
+  ${passados.length?`<section class="seccao espaco"><div class="barra-tabela"><div><h3>Já foram</h3></div></div><div class="emp-lista">${passados.map(a=>cartaoAcamp(a,E.cr)).join("")}</div></section>`:""}`;
+}
+
+/* ---------- vista do Comissariado Regional ---------- */
+function linhasAcamp(){
+  return (BD.acampamentos||[]).map(a=>({a, c:comp(a.comp)})).filter(x=>x.c)
+    .sort((x,y)=>(x.a.inicio||"").localeCompare(y.a.inicio||""));
+}
+function crAcampamentos(){
+  const f = E.crAc || {comp:"", quando:"porvir"};
+  const todas = linhasAcamp();
+  const lista = todas.filter(x => (!f.comp || x.a.comp===f.comp) &&
+    (f.quando==="todos" || (f.quando==="porvir" ? !passou(x.a.fim) : passou(x.a.fim))));
+  const porVir = todas.filter(x=>!passou(x.a.fim));
+  const guiasForaDeCasa = porVir.reduce((t,x)=>t+totalGuias(x.a),0);
+  const linhas = lista.map(x=>`<tr>
+    <td><span class="nome">${esc(x.c.nome)}</span><span class="sub">${esc(x.a.tipo)}${x.a.nome?" · "+esc(x.a.nome):""}</span></td>
+    <td><b>${fmt(x.a.inicio)}</b><span class="sub">a ${fmt(x.a.fim)}</span></td>
+    <td>${esc(x.a.local)}<span class="sub">${esc([x.a.freguesia,x.a.concelho].filter(Boolean).join(", "))}</span></td>
+    <td>${esc(x.a.responsavel)}<span class="sub num">${esc(x.a.contacto)}</span></td>
+    <td>${RAMOS_CENSOS.filter(r=>+x.a.guias?.[r]).map(r=>`<span class="ramo"><i style="background:${RAMOS[r]}"></i>${r} ${x.a.guias[r]}</span>`).join(" ")||'<span class="sub">—</span>'}</td>
+    <td class="valor">${totalGuias(x.a)}</td>
+    <td class="valor">${x.a.dirCom||0} / ${x.a.dirSem||0}</td>
+  </tr>`).join("") || `<tr><td colspan="7" class="vazio">Não há acampamentos com estes filtros.</td></tr>`;
+  return `<div class="topo"><div class="running" style="text-align:right">Comissariado Regional<span>Acampamentos</span></div></div>
+  <div class="cabecalho"><div><span class="rule"></span><h1>Acampamentos</h1><p>Onde estão as companhias e com quem. São as companhias que declaram; não há nada para aprovar.</p></div></div>
+  <div class="numeros">
+    <div><span class="n">${porVir.length}</span><span class="l">Marcados daqui para a frente</span></div>
+    <div><span class="n">${guiasForaDeCasa}</span><span class="l">Guias que vão dormir fora</span></div>
+    <div><span class="n">${new Set(porVir.map(x=>x.a.comp)).size}</span><span class="l">Companhias com saídas marcadas</span></div>
+  </div>
+  <section class="seccao"><div class="filtros-ct">
+      <label for="ac-f-comp">Companhia<select id="ac-f-comp"><option value="">Todas</option>${COMPANHIAS.map(c=>`<option value="${c.id}" ${f.comp===c.id?"selected":""}>${esc(c.nome)}</option>`).join("")}</select></label>
+      <label for="ac-f-quando">Quando<select id="ac-f-quando"><option value="porvir" ${f.quando==="porvir"?"selected":""}>Por vir</option><option value="passados" ${f.quando==="passados"?"selected":""}>Já foram</option><option value="todos" ${f.quando==="todos"?"selected":""}>Todos</option></select></label>
+      <div class="ct-acoes"><button class="btn pequeno" id="exportarAcamp">Exportar para Excel</button></div>
+    </div>
+    <div class="tabela"><table style="min-width:980px"><thead><tr><th>Companhia</th><th>Dias</th><th>Onde dormem</th><th>Responsável</th><th>Guias por ramo</th><th>Guias</th><th>Dir. c/ · s/</th></tr></thead><tbody>${linhas}</tbody></table></div>
+  </section>`;
+}
 function vistaEmprestimos(){
   if(E.emp==="novo") return vistaNovoPedido();
   const c=comp(E.comp), meus=meusEmp().filter(e=>e.estado!=="cancelado").sort((a,b)=>b.uso.inicio.localeCompare(a.uso.inicio));
@@ -1437,16 +1569,16 @@ function vistaCR(){
   const vendo=E.crVista==="ver"&&E.comp;
   const subItem=(k,n)=>`<button data-pagina="${k}" ${E.pagina===k?'aria-current="page"':""}><span class="nome">${n}</span></button>`;
   const conteudo = vendo ? `<div class="faixa-cr"><span>A ver a companhia <b>${esc(comp(E.comp).nome)}</b> como Comissariado Regional. Só consulta: as respostas dão-se em Pedidos.</span><a class="btn pequeno" href="#/cr/companhias">Todas as companhias</a></div>`+
-      (E.pagina==="emprestimos"?vistaEmprestimos():E.pagina==="atividades"?vistaAtividades():E.pagina==="tesouraria"?vistaTesouraria():E.pagina==="patrulha"?vistaPatrulha():vistaCompanhia())
-    : E.crVista==="companhias"?crCompanhias():E.crVista==="tesouraria"?crTesouraria():E.crVista==="atividades"?crAtividades():E.crVista==="alteracoes"?crAlteracoes():E.crVista==="prazos"?crPrazos():E.crVista==="contactos"?crContactos():crPedidos(pend);
+      (E.pagina==="emprestimos"?vistaEmprestimos():E.pagina==="acampamentos"?vistaAcampamentos():E.pagina==="atividades"?vistaAtividades():E.pagina==="tesouraria"?vistaTesouraria():E.pagina==="patrulha"?vistaPatrulha():vistaCompanhia())
+    : E.crVista==="companhias"?crCompanhias():E.crVista==="tesouraria"?crTesouraria():E.crVista==="atividades"?crAtividades():E.crVista==="alteracoes"?crAlteracoes():E.crVista==="prazos"?crPrazos():E.crVista==="contactos"?crContactos():E.crVista==="acampamentos"?crAcampamentos():crPedidos(pend);
   return `<div class="app">
     <aside class="lateral painel">${trevos("lateral")}
       ${marca(LOGO_BRANCO)}
       <div class="companhia"><span class="rule"></span><h2>Comissariado Regional</h2><p>${CR_CONTA.email}</p></div>
       <nav class="menu" aria-label="Páginas">
         ${totalAvisos()?`<button id="avisarJa" class="aviso-env"><span class="nome">${avisosFalharam?"Avisos por enviar":"A avisar as companhias"}</span><span class="conta">${totalAvisos()}</span></button>`:""}
-        ${menu("pedidos","Pedidos",pend.length)}${menu("alteracoes","Alterações",naoVistas().length)}${menu("companhias","Companhias")}${menu("tesouraria","Tesouraria")}${menu("contactos","Contactos")}${menu("atividades","Atividades")}${menu("prazos","Prazos")}
-        ${vendo?`<div class="sub-menu"><span class="rotulo">${esc(comp(E.comp).nome)}</span>${subItem("companhia","Companhia")}${subItem("patrulha","Patrulha")}${subItem("tesouraria","Tesouraria")}${subItem("atividades","Atividades")}${subItem("emprestimos","Empréstimos")}</div>`:""}
+        ${menu("pedidos","Pedidos",pend.length)}${menu("alteracoes","Alterações",naoVistas().length)}${menu("companhias","Companhias")}${menu("tesouraria","Tesouraria")}${menu("contactos","Contactos")}${menu("atividades","Atividades")}${menu("acampamentos","Acampamentos")}${menu("prazos","Prazos")}
+        ${vendo?`<div class="sub-menu"><span class="rotulo">${esc(comp(E.comp).nome)}</span>${subItem("companhia","Companhia")}${subItem("patrulha","Patrulha")}${subItem("tesouraria","Tesouraria")}${subItem("atividades","Atividades")}${subItem("emprestimos","Empréstimos")}${subItem("acampamentos","Acampamentos")}</div>`:""}
       </nav>
       <div class="fim"><div class="running">Plataforma Guidista<span>Região de Lisboa · 2026-2027</span></div><button class="sair" id="sair">Sair</button></div>
     </aside>
@@ -1462,7 +1594,7 @@ function crAlteracoes(){
     <div class="acoes" style="align-items:flex-end"><label for="filtro-al" style="min-width:200px">Companhia<select id="filtro-al"><option value="">Todas</option>${COMPANHIAS.map(c=>`<option value="${c.id}" ${f===c.id?"selected":""}>${esc(c.nome)}</option>`).join("")}</select></label>${nv?`<button class="btn primario" data-al-todas>Marcar todas como vistas</button>`:""}</div></div>
   ${dias.length?dias.map(d=>`<section class="al-dia"><span class="rotulo">${fmt(d)}</span>${lista.filter(a=>a.quando.slice(0,10)===d).map(a=>`<article class="al-item ${a.visto?"":"nova"}">
       <div><span class="rotulo">${esc(a.tipo)} · ${esc(comp(a.comp).nome)} · ${quandoTxt(a.quando).split(" · ")[1]}</span><b>${esc(a.texto)}</b></div>
-      <div class="acoes">${a.visto?`<span class="sub">Vista</span>`:`<button class="btn pequeno" data-al-vista="${a.id}">Marcar como vista</button>`}<a class="btn texto pequeno" href="#/cr/ver/${a.comp}/${({"Conta bancária":"tesouraria/conta","Faturas":"tesouraria/faturas","Quotas":"tesouraria/quotas","Admissões":"tesouraria/admissoes","Orçamento":"tesouraria/orcamento","Reembolsos":"tesouraria/reembolsos","Pagamento de atividade":"tesouraria/atividades","Atividades":"atividades","Empréstimos":"emprestimos","Patrulha":"patrulha","Registos criminais":"patrulha"})[a.tipo]||"companhia"}">Ver</a></div>
+      <div class="acoes">${a.visto?`<span class="sub">Vista</span>`:`<button class="btn pequeno" data-al-vista="${a.id}">Marcar como vista</button>`}<a class="btn texto pequeno" href="#/cr/ver/${a.comp}/${({"Conta bancária":"tesouraria/conta","Faturas":"tesouraria/faturas","Quotas":"tesouraria/quotas","Admissões":"tesouraria/admissoes","Orçamento":"tesouraria/orcamento","Reembolsos":"tesouraria/reembolsos","Pagamento de atividade":"tesouraria/atividades","Atividades":"atividades","Empréstimos":"emprestimos","Acampamentos":"acampamentos","Patrulha":"patrulha","Registos criminais":"patrulha"})[a.tipo]||"companhia"}">Ver</a></div>
     </article>`).join("")}</section>`).join(""):`<p class="vazio">Ainda não há alterações.</p>`}`;
 }
 function janelaAlteracoes(lista){
@@ -1541,6 +1673,23 @@ function crContactos(){
     <div class="tabela tabela-ct"><table style="min-width:860px"><thead><tr><th>Companhia</th><th>Cargo</th><th>Nome</th><th>Ramo</th><th>Email</th><th>Telemóvel</th></tr></thead><tbody>
     ${linhas.map(l=>`<tr><td>${esc(l.comp)}</td><td>${esc(l.cargo)}</td><td><span class="nome">${esc(l.nome)}</span></td><td>${l.ramo?`<span class="ramo"><i style="background:${RAMOS[l.ramo]||"var(--azul-20)"}"></i>${esc(l.ramo)}</span>`:'<span class="sub">Sem ramo</span>'}</td><td class="contactos">${esc(l.email)}</td><td class="num">${esc(l.tel)}</td></tr>`).join("")||`<tr><td colspan="6" class="vazio">Não há contactos com estes filtros.</td></tr>`}
     </tbody></table></div></section>`;
+}
+async function exportarAcampamentos(){
+  const f = E.crAc || {comp:"", quando:"porvir"};
+  const linhas = linhasAcamp().filter(x => (!f.comp || x.a.comp===f.comp) &&
+    (f.quando==="todos" || (f.quando==="porvir" ? !passou(x.a.fim) : passou(x.a.fim))))
+    .map(x => {
+      const l = {Companhia:NOME_EXCEL[x.a.comp]||x.c.nome, Tipo:x.a.tipo, Nome:x.a.nome, Começa:fmt(x.a.inicio), Acaba:fmt(x.a.fim),
+        "Onde dormem":x.a.local, Freguesia:x.a.freguesia, Concelho:x.a.concelho,
+        Responsável:x.a.responsavel, Contacto:x.a.contacto};
+      RAMOS_CENSOS.forEach(r => l[r] = +x.a.guias?.[r]||0);
+      l["Total de guias"]=totalGuias(x.a);
+      l["Dirigentes com compromisso"]=+x.a.dirCom||0;
+      l["Dirigentes sem compromisso"]=+x.a.dirSem||0;
+      l["Observações"]=x.a.obs||"";
+      return l;
+    });
+  await exportarTabela("Acampamentos", linhas);
 }
 async function exportarContactos(){
   const f = E.crCt || {comp:"", cargo:"", ramo:"", procura:""};
@@ -2146,17 +2295,18 @@ function aplicarRota(){
   if(E.cr){
     if(partes[0]!=="cr") partes=["cr","pedidos"];
     if(partes[1]==="ver"&&COMPANHIAS.some(c=>c.id===partes[2])){ if(E.comp!==partes[2]){E.rascunho=null;E.pedido=null} E.crVista="ver"; E.comp=partes[2]; partes=partes.slice(3); }
-    else { E.crVista=["pedidos","companhias","tesouraria","atividades","alteracoes","prazos","contactos"].includes(partes[1])?partes[1]:"pedidos"; E.comp=null; E.crAtiv=E.crVista==="atividades"?(partes[2]||null):null;
+    else { E.crVista=["pedidos","companhias","tesouraria","atividades","alteracoes","prazos","contactos","acampamentos"].includes(partes[1])?partes[1]:"pedidos"; E.comp=null; E.crAtiv=E.crVista==="atividades"?(partes[2]||null):null;
       E.crSep=E.crVista==="tesouraria"?(SEP_CR_TES.some(x=>x[0]===partes[2])?partes[2]:"faturas"):E.crSep;
       E.chaveRota=location.hash; fechar(); desenhar(); window.scrollTo(0,0); verificarAlteracoesCR(); return; }
   }
   const [pag,sub]=partes;
-  const paginas=["companhia","patrulha","tesouraria","atividades","emprestimos"];
+  const paginas=["companhia","patrulha","tesouraria","atividades","emprestimos","acampamentos"];
   E.pagina=paginas.includes(pag)?pag:"companhia";
   E.sep=E.pagina==="tesouraria"&&SEPARADORES.some(s=>s[0]===sub)?sub:"conta";
   const ativ=E.pagina==="atividades"&&ativs().some(a=>a.id===sub)?sub:null;
   if(ativ!==E.ativ) E.rascunho=null; E.ativ=ativ;
   E.emp=E.pagina==="emprestimos"&&sub==="novo"?"novo":null;
+  if(E.pagina!=="acampamentos") E.acampForm=null;
   const chave=(E.cr?"cr-"+E.comp+"-":"")+E.pagina+(E.pagina==="tesouraria"?"":"/"+(sub||""));
   E.chaveRota=chave;
   fechar(); desenhar();
@@ -2204,7 +2354,7 @@ const SB_KEY = "sb_publishable_o4nTsyZwpW5G7HfszIjruQ_O9cgIQa-";
 const sb = window.supabase.createClient(SB_URL, SB_KEY);
 
 let contaEmail = null;
-let BD = null, guardado = {}, tempoGuardar = null;
+let BD = null, guardado = {}, versao = {}, tempoGuardar = null;
 let E = {comp:null, erro:"", email:"", pagina:"companhia", sep:"conta", ativ:null, rascunho:null, emp:null, pedido:null};
 let pessoasGuardadas = new Map();
 let crGuardadas = new Map();
@@ -2370,7 +2520,7 @@ async function exportarFaturas(){
 }
 
 const tesVazia = () => ({iban:"",titulares:[],comprovativo:null,subsidios:[],faturas:[],orcamento:[],orcamentoFicheiro:null,reembolsos:[],admissoes:[],quotas:[]});
-const bdVazia = () => ({pessoas:[],tesouraria:{},censos:{},atividades:[],inscricoes:{},emprestimos:[],alteracoes:[],prazos:{...PRAZOS},pessoasCR:[],config:{}});
+const bdVazia = () => ({pessoas:[],tesouraria:{},censos:{},atividades:[],inscricoes:{},emprestimos:[],acampamentos:[],alteracoes:[],prazos:{...PRAZOS},pessoasCR:[],config:{}});
 
 function fatia(n){
   if(n === "cr") return {atividades:BD.atividades, prazos:BD.prazos};
@@ -2379,6 +2529,7 @@ function fatia(n){
     censos: BD.censos[n],
     inscricoes: BD.inscricoes[n] || {},
     emprestimos: BD.emprestimos.filter(e => e.comp === n),
+    acampamentos: (BD.acampamentos||[]).filter(a => a.comp === n),
     alteracoes: BD.alteracoes.filter(a => a.comp === n)
   };
 }
@@ -2393,14 +2544,16 @@ function juntar(n, d){
   BD.censos[n] = d?.censos || {historico:{}, atual:null};
   BD.inscricoes[n] = d?.inscricoes || {};
   BD.emprestimos.push(...(d?.emprestimos || []));
+  BD.acampamentos.push(...(d?.acampamentos || []));
   BD.alteracoes.push(...(d?.alteracoes || []));
 }
 async function carregar(nomes){
   BD = bdVazia();
-  const {data, error} = await sb.from("dados").select("comp, conteudo").in("comp", nomes);
+  const {data, error} = await sb.from("dados").select("comp, conteudo, atualizado").in("comp", nomes);
   if(error) throw new Error("Não consegui ler os dados: " + error.message);
   const porComp = {};
-  (data || []).forEach(l => porComp[l.comp] = l.conteudo);
+  versao = {};
+  (data || []).forEach(l => { porComp[l.comp] = l.conteudo; versao[l.comp] = l.atualizado });
   nomes.forEach(n => juntar(n, porComp[n]));
   const comps = nomes.filter(n => n !== "cr");
   if(comps.length){
@@ -2511,8 +2664,18 @@ async function gravar(){
     if(!n) continue;
     const texto = JSON.stringify(fatia(n));
     if(texto === guardado[n]) continue;
-    const {error} = await sb.from("dados").update({conteudo: JSON.parse(texto)}).eq("comp", n);
-    if(error){ falhas.push("Não consegui gravar os dados da companhia: " + error.message); continue }
+    /* So gravamos se ninguem mexeu nesta linha desde que a lemos.
+       Assim o Comissariado nunca apaga por cima do que uma companhia acabou de escrever. */
+    let q = sb.from("dados").update({conteudo: JSON.parse(texto)}).eq("comp", n);
+    if(versao[n]) q = q.eq("atualizado", versao[n]);
+    const r = await q.select("comp, atualizado");
+    if(r.error){ falhas.push("Não consegui gravar os dados da companhia: " + r.error.message); continue }
+    if(!r.data || !r.data.length){
+      const quem = (typeof comp === "function" && comp(n)) ? comp(n).nome : n;
+      falhas.push("Os dados da " + quem + " mudaram noutro sítio entretanto. Para não apagar o que lá foi escrito, essa parte não foi gravada: recarreguem a página (Ctrl+F5) e voltem a fazer a alteração.");
+      continue;
+    }
+    versao[n] = r.data[0].atualizado;
     guardado[n] = texto;
   }
   if(falhas.length) throw new Error(falhas.join(" · "));
@@ -2697,11 +2860,11 @@ function vistaApp(){
       <div class="companhia"><span class="rule"></span><h2>${esc(c.nome)}</h2><p>${c.email}</p></div>
       <nav class="menu" aria-label="Páginas">
         ${item("companhia","Companhia")}${item("patrulha","Patrulha")}${item("tesouraria","Tesouraria")}
-        ${item("atividades","Atividades")}${item("emprestimos","Empréstimos")}
+        ${item("atividades","Atividades")}${item("emprestimos","Empréstimos")}${item("acampamentos","Acampamentos")}
       </nav>
       <div class="fim"><div class="running">Plataforma Guidista<span>Região de Lisboa · 2026-2027</span></div><button class="sair" id="sair">Sair</button></div>
     </aside>
-    <main class="conteudo">${E.pagina==="emprestimos"?vistaEmprestimos():E.pagina==="atividades"?vistaAtividades():E.pagina==="tesouraria"?vistaTesouraria():E.pagina==="patrulha"?vistaPatrulha():vistaCompanhia()}</main></div>`;
+    <main class="conteudo">${E.pagina==="emprestimos"?vistaEmprestimos():E.pagina==="acampamentos"?vistaAcampamentos():E.pagina==="atividades"?vistaAtividades():E.pagina==="tesouraria"?vistaTesouraria():E.pagina==="patrulha"?vistaPatrulha():vistaCompanhia()}</main></div>`;
 }
 
 /* ---------- janelas ---------- */
@@ -2818,6 +2981,7 @@ document.addEventListener("click",e=>{
   if(d.crPessoa){janelaPessoaCR(d.crPessoa);return}
   if(d.abrir){abrirDocumento(d.abrir);return}
   if(b.id==="avisarJa"){enviarAvisos(true);return}
+  if(b.id==="exportarAcamp"){exportarAcampamentos();return}
   if(b.id==="exportarContactos"){exportarContactos().catch(e=>toast(e.message));return}
   if(d.crsep){irPara("#/cr/tesouraria/"+d.crsep);return}
   if(b.id==="zipFaturas"){descarregarFaturas();return}
@@ -2843,6 +3007,15 @@ document.addEventListener("click",e=>{
   if(d.obs){const [a,c]=d.obs.split("|");janelaObs(a,c);return}
   if(d.mais||d.menos){const id=d.mais||d.menos;E.pedido.qtd[id]=Math.max(0,(E.pedido.qtd[id]||0)+(d.mais?1:-1));atualizarPedido();return}
   if(b.id==="enviarPedido"){enviarPedido();return}
+  if(b&&b.id==="acampNovo"){E.acampForm="novo";desenhar();return}
+  if(b&&b.id==="acampCancelar"){E.acampForm=null;desenhar();return}
+  if(b&&b.id==="acampGuardar"){guardarAcamp();return}
+  if(d.acampEditar){E.acampForm=d.acampEditar;desenhar();window.scrollTo(0,0);return}
+  if(d.acampApagar){
+    const a=BD.acampamentos.find(x=>x.id===d.acampApagar); if(!a) return;
+    BD.acampamentos=BD.acampamentos.filter(x=>x.id!==d.acampApagar);
+    registar("Acampamentos","Apagou o "+a.tipo.toLowerCase()+" de "+fmt(a.inicio)+" a "+fmt(a.fim));
+    guardar();desenhar();toast("Acampamento apagado");return}
   if(d.escolher){
     const [idEmp,tipo,i]=d.escolher.split("|");
     const e=BD.emprestimos.find(x=>x.id===idEmp), o=opcoesEmp(e,tipo)[+i];
@@ -2874,6 +3047,7 @@ document.addEventListener("change",e=>{
   if(["ft-mes","ft-comp","ft-cat","ft-estado"].includes(el.id)){const k={"ft-mes":"mes","ft-comp":"comp","ft-cat":"cat","ft-estado":"estado"}[el.id];E.crFat={mes:"",comp:"",cat:"",estado:"",...(E.crFat||{}),[k]:el.value};desenhar();return}
   if(el.id==="en-comp"||el.id==="en-estado"){const k=el.id==="en-comp"?"comp":"estado";E.crEnt={comp:"",estado:"",...(E.crEnt||{}),[k]:el.value};desenhar();return}
   if(el.id==="ct-comp"||el.id==="ct-cargo"||el.id==="ct-ramo"){const k=el.id.slice(3);E.crCt={comp:"",cargo:"",ramo:"",procura:"",...(E.crCt||{}),[k]:el.value};desenhar();return}
+  if(el.id==="ac-f-comp"||el.id==="ac-f-quando"){const k=el.id==="ac-f-comp"?"comp":"quando";E.crAc={comp:"",quando:"porvir",...(E.crAc||{}),[k]:el.value};desenhar();return}
   if(el.id==="ct-procura"){filtrarContactos(el.value);return}
   if(el.id==="filtro-al"){E.crFiltroAl=el.value;desenhar();return}
   if(el.id==="filtro-comp"){E.crFiltro={...(E.crFiltro||{tipo:""}),comp:el.value};desenhar();return}
