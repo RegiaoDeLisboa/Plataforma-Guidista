@@ -482,6 +482,16 @@ a.ativ-cartao{text-decoration:none;color:inherit;grid-template-columns:auto minm
 .troca-vista button{background:none;border:0;padding:9px 16px;font:inherit;font-size:12.5px;letter-spacing:.02em;color:var(--tinta-2);cursor:pointer}
 .troca-vista button + button{border-left:1px solid var(--azul-20)}
 .troca-vista button[aria-selected="true"]{background:var(--azul);color:#fff;font-weight:600}
+.aviso-env{background:rgba(255,255,255,.10);border:1px solid rgba(255,255,255,.25)}
+.aviso-env .nome{font-size:12.5px}
+.opcoes-emp{display:grid;gap:7px;margin:2px 0 4px}
+.opc-linha,.opc-cab{display:grid;grid-template-columns:16px 1.25fr 86px 86px 1.4fr;gap:8px;align-items:center}
+.opc-cab span{font-size:10.5px;letter-spacing:1px;text-transform:uppercase;color:var(--tinta-3)}
+.opc-linha .opc-n{font-size:11px;color:var(--tinta-3);text-align:center}
+.opc-linha input{font:inherit;font-size:13.5px;padding:7px 9px;border:1px solid var(--azul-20);background:#fff;color:var(--tinta)}
+.emp-escolha{border-top:1px solid var(--azul-10);margin-top:10px;padding-top:10px;display:grid;gap:7px}
+.emp-escolha .sub{font-size:12px;color:var(--tinta-3)}
+.emp-opcoes{display:flex;gap:8px;flex-wrap:wrap}
 .filtros-ct{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px;align-items:end;margin:0 0 14px}
 .filtros-ct label{display:grid;gap:5px;font-size:10.5px;text-transform:uppercase;letter-spacing:.08em;color:var(--tinta-3)}
 .filtros-ct select,.filtros-ct input{font:inherit;font-size:13.5px;padding:8px 10px;border:1px solid var(--azul-20);background:#fff;color:var(--tinta)}
@@ -1269,6 +1279,22 @@ function exemploEmprestimos(){
 const mat=id=>MATERIAL.find(m=>m.id===id);
 const meusEmp=()=>BD.emprestimos.filter(e=>e.comp===E.comp);
 function sobrepoe(a1,a2,b1,b2){return a1<=b2&&b1<=a2}
+function horasOpc(o){return o&&o.horaFim&&o.horaFim!==o.hora ? o.hora+"–"+o.horaFim : (o?o.hora:"")}
+function opcoesEmp(e,tipo){return (tipo==="lev"?e.levantamentoOpcoes:e.devolucaoOpcoes)||[]}
+function porEscolher(e){
+  if(e.estado!=="aprovado") return [];
+  return ["lev","dev"].filter(t=>opcoesEmp(e,t).length>1 && !(t==="lev"?e.levantamento:e.devolucao));
+}
+function escolhaEmp(e,tipo){
+  const op=opcoesEmp(e,tipo);
+  if(e.estado!=="aprovado"||op.length<2) return "";
+  const feito=tipo==="lev"?e.levantamento:e.devolucao;
+  const nome=tipo==="lev"?"levantamento":"devolução";
+  if(feito) return "";
+  return `<div class="emp-escolha"><span class="rotulo">Escolham o ${nome}</span>
+    <div class="emp-opcoes">${op.map((o,i)=>`<button class="btn pequeno" data-escolher="${e.id}|${tipo}|${i}">${fmt(o.data)} · ${horasOpc(o)}${o.local?" · "+esc(o.local):""}</button>`).join("")}</div>
+    <span class="sub">O CR fica a saber qual escolheram.${e.recurso?" Se nenhuma destas der: "+esc(e.recurso)+".":""}</span></div>`;
+}
 function periodoEmp(e){return [e.levantamento?.data||e.uso.inicio, e.devolucao?.data||e.uso.fim||e.uso.inicio]}
 function disponivel(idMat,de,ate,ignorar){
   const m=mat(idMat); if(!de||!ate) return m.total;
@@ -1288,11 +1314,13 @@ function vistaEmprestimos(){
       <div class="emp-topo"><div><span class="rotulo">${esc(e.motivo)}</span><h3>${resumoItens(e)}</h3></div><span class="estado ${atraso?"devolvida":cls}">${atraso?"Devolução em atraso":txt}</span></div>
       <div class="emp-datas">
         <div><span class="rotulo">Utilizar</span><b>${fmt(e.uso.inicio)}${e.uso.fim&&e.uso.fim!==e.uso.inicio?" a "+fmt(e.uso.fim):""}</b></div>
-        <div><span class="rotulo">Levantar</span>${e.levantamento?`<b>${fmt(e.levantamento.data)}</b><span>${e.levantamento.hora}</span>`:`<span>A combinar</span>`}</div>
-        <div><span class="rotulo">Devolver</span>${e.devolucao?`<b>${fmt(e.devolucao.data)}</b><span>${e.devolucao.hora}</span>`:`<span>A combinar</span>`}</div>
+        <div><span class="rotulo">Levantar</span>${e.levantamento?`<b>${fmt(e.levantamento.data)}</b><span>${horasOpc(e.levantamento)}${e.levantamento.local?" · "+esc(e.levantamento.local):""}</span>`:`<span>${(e.levantamentoOpcoes||[]).length>1?"Por escolher":"A combinar"}</span>`}</div>
+        <div><span class="rotulo">Devolver</span>${e.devolucao?`<b>${fmt(e.devolucao.data)}</b><span>${horasOpc(e.devolucao)}${e.devolucao.local?" · "+esc(e.devolucao.local):""}</span>`:`<span>${(e.devolucaoOpcoes||[]).length>1?"Por escolher":"A combinar"}</span>`}</div>
       </div>
+      ${escolhaEmp(e,"lev")}${escolhaEmp(e,"dev")}
       ${e.estado==="recusado"&&e.motivo_recusa?`<p class="emp-nota recusa"><b>Motivo:</b> ${esc(e.motivo_recusa)}</p>`:""}
-      ${e.estado==="aprovado"?`<p class="emp-nota">${e.levantamento?"Aprovado. Levantem o material no dia e hora combinados.":"Aprovado. O levantamento e a devolução vão ser combinados com o CR."}</p>`:""}${e.estado==="pendente"?`<p class="emp-nota">O dia de levantamento e de devolução é combinado com o CR depois de o pedido ser aprovado.</p>`:""}
+      ${e.estado==="aprovado"&&!porEscolher(e).length?`<p class="emp-nota">${e.levantamento?"Aprovado. Levantem o material no dia, hora e local combinados.":"Aprovado. O levantamento e a devolução vão ser combinados com o CR."}</p>`:""}${e.estado==="pendente"?`<p class="emp-nota">O dia de levantamento e de devolução é combinado com o CR depois de o pedido ser aprovado.</p>`:""}
+      ${e.estado==="aprovado"&&e.recurso&&!porEscolher(e).length?`<p class="emp-nota"><b>Se não conseguirem:</b> ${esc(e.recurso)}</p>`:""}
       ${e.obs?`<p class="emp-nota"><b>Observações:</b> ${esc(e.obs)}</p>`:""}
       ${e.estado==="pendente"?`<div class="acoes" style="justify-content:flex-start"><button class="btn texto pequeno" data-cancelar-emp="${e.id}" style="color:var(--alerta)">Cancelar pedido</button></div>`:""}
     </article>`};
@@ -1398,7 +1426,7 @@ function pedidosCR(){
   });
   BD.emprestimos.filter(e=>["pendente","aprovado","levantado"].includes(e.estado)).forEach(e=>L.push({tipo:"Empréstimos",comp:e.comp,data:e.criado,titulo:resumoItens(e),det:e.motivo+" · para "+fmt(e.uso.inicio)+(e.uso.fim&&e.uso.fim!==e.uso.inicio?" a "+fmt(e.uso.fim):"")+(e.obs?" · "+e.obs:""),
     acoes:e.estado==="pendente"?[["aprovarEmp","Aprovar",e.id,"primario"],["recusarEmp","Recusar",e.id]]:e.estado==="aprovado"?[["levantadoEmp","Marcar levantado",e.id,"primario"]]:[["devolvidoEmp","Marcar devolvido",e.id,"primario"]],
-    estado:e.estado==="aprovado"?"Aprovado · levantar "+(e.levantamento?fmt(e.levantamento.data)+" "+e.levantamento.hora:"a combinar"):e.estado==="levantado"?"Levantado · devolver "+(e.devolucao?fmt(e.devolucao.data):"a combinar"):""}));
+    estado:e.estado==="aprovado"?(porEscolher(e).length?"Aprovado · à espera da escolha da companhia":"Aprovado · levantar "+(e.levantamento?fmt(e.levantamento.data)+" "+horasOpc(e.levantamento):"a combinar")):e.estado==="levantado"?"Levantado · devolver "+(e.devolucao?fmt(e.devolucao.data):"a combinar"):""}));
   /* urgência: empréstimos para os próximos 14 dias primeiro; depois os que esperam há mais tempo */
   L.forEach(p=>{p.espera=Math.max(0,-diasAte(p.data)); p.urgente=p.tipo==="Empréstimos"&&p.acoes[0][0]==="aprovarEmp"&&diasAte(BD.emprestimos.find(e=>e.id===p.acoes[0][2]).uso.inicio)<=14});
   return L.sort((a,b)=>(b.urgente-a.urgente)||a.data.localeCompare(b.data));
@@ -1416,6 +1444,7 @@ function vistaCR(){
       ${marca(LOGO_BRANCO)}
       <div class="companhia"><span class="rule"></span><h2>Comissariado Regional</h2><p>${CR_CONTA.email}</p></div>
       <nav class="menu" aria-label="Páginas">
+        ${totalAvisos()?`<button id="avisarJa" class="aviso-env"><span class="nome">${avisosFalharam?"Avisos por enviar":"A avisar as companhias"}</span><span class="conta">${totalAvisos()}</span></button>`:""}
         ${menu("pedidos","Pedidos",pend.length)}${menu("alteracoes","Alterações",naoVistas().length)}${menu("companhias","Companhias")}${menu("tesouraria","Tesouraria")}${menu("contactos","Contactos")}${menu("atividades","Atividades")}${menu("prazos","Prazos")}
         ${vendo?`<div class="sub-menu"><span class="rotulo">${esc(comp(E.comp).nome)}</span>${subItem("companhia","Companhia")}${subItem("patrulha","Patrulha")}${subItem("tesouraria","Tesouraria")}${subItem("atividades","Atividades")}${subItem("emprestimos","Empréstimos")}</div>`:""}
       </nav>
@@ -2035,27 +2064,51 @@ function janelaCR(titulo,subtitulo,corpo,okTxt,aoConfirmar){
   $("#okCR").onclick=aoConfirmar;
 }
 function acaoCR(acao,id,compId){
-  const t=BD.tesouraria[compId], cn=comp(compId).nome, feito=m=>{guardar();fechar();desenhar();toast(m)};
+  const t=BD.tesouraria[compId], cn=comp(compId).nome;
+  const feito=(m,aviso)=>{anotarAviso(compId, aviso||m);guardar();fechar();desenhar();toast(m)};
   const fat=()=>t.faturas.find(f=>f.id===id), reemb=()=>t.reembolsos.find(r=>r.id===id), emp=()=>BD.emprestimos.find(e=>e.id===id);
   switch(acao){
     case "abrirDoc": abrirDocumento(id); break;
-    case "aceitarFatura": janelaCR("Aceitar fatura",cn+" · "+fat().ficheiro,`<label class="inteiro" for="cr-valor">Valor da fatura (€)<input type="number" id="cr-valor" min="0" step="0.01" value="${fat().valor!=null?fat().valor:""}"></label>${fat().valor!=null?`<div class="caixa inteiro">Valor indicado pela companhia${fat().caminho?", depois de ler a imagem":""}. Confirmem contra a fatura.</div>`:""}`,"Aceitar",()=>{const v=parseFloat($("#cr-valor").value);if(!(v>0)){toast("Indiquem o valor da fatura");return}Object.assign(fat(),{estado:"aceite",valor:v});feito("Fatura aceite")});break;
-    case "devolverFatura": janelaCR("Devolver fatura",cn+" · "+fat().ficheiro,`<label class="inteiro" for="cr-motivo">Motivo (a companhia vai ver este texto)<textarea id="cr-motivo" rows="3"></textarea></label>`,"Devolver",()=>{const m=$("#cr-motivo").value.trim();if(!m){toast("Escrevam o motivo");return}Object.assign(fat(),{estado:"devolvida",motivo:m});feito("Fatura devolvida à companhia")});break;
+    case "aceitarFatura": janelaCR("Aceitar fatura",cn+" · "+fat().ficheiro,`<label class="inteiro" for="cr-valor">Valor da fatura (€)<input type="number" id="cr-valor" min="0" step="0.01" value="${fat().valor!=null?fat().valor:""}"></label>${fat().valor!=null?`<div class="caixa inteiro">Valor indicado pela companhia${fat().caminho?", depois de ler a imagem":""}. Confirmem contra a fatura.</div>`:""}`,"Aceitar",()=>{const v=parseFloat($("#cr-valor").value);if(!(v>0)){toast("Indiquem o valor da fatura");return}const nf=fat().ficheiro;Object.assign(fat(),{estado:"aceite",valor:v});feito("Fatura aceite","Fatura "+nf+" aceite, no valor de "+eur(v)+".")});break;
+    case "devolverFatura": janelaCR("Devolver fatura",cn+" · "+fat().ficheiro,`<label class="inteiro" for="cr-motivo">Motivo (a companhia vai ver este texto)<textarea id="cr-motivo" rows="3"></textarea></label>`,"Devolver",()=>{const m=$("#cr-motivo").value.trim();if(!m){toast("Escrevam o motivo");return}const nf2=fat().ficheiro;Object.assign(fat(),{estado:"devolvida",motivo:m});feito("Fatura devolvida à companhia","Fatura "+nf2+" devolvida para corrigir. Motivo: "+m)});break;
     case "papelRecebido": fat().papel={data:iso(HOJE)};feito("Fatura marcada como recebida em papel");break;
-    case "confirmarQuota": t.quotas.find(q=>q.id===id).estado="confirmado";feito("Pagamento de quotas confirmado");break;
-    case "confirmarPA": t.admissoes.find(a=>a.id===id).estado="pago";feito("Pagamento da proposta confirmado");break;
-    case "confirmarAtiv": {const [aid,pid]=id.split("|"); const ps=BD.inscricoes[compId][aid].pagamentos||[]; ps.filter(p=>p.estado==="enviado"&&(!pid||p.id===pid)).forEach(p=>p.estado="confirmado"); feito("Pagamento da atividade confirmado");break;}
-    case "aprovarReemb": reemb().estado="aprovado";feito("Reembolso aprovado");break;
-    case "pagoReemb": reemb().estado="pago";feito("Reembolso marcado como pago");break;
-    case "recusarReemb": janelaCR("Recusar reembolso",cn+" · "+reemb().nome,`<label class="inteiro" for="cr-motivo">Motivo<textarea id="cr-motivo" rows="3"></textarea></label>`,"Recusar",()=>{const m=$("#cr-motivo").value.trim();if(!m){toast("Escrevam o motivo");return}Object.assign(reemb(),{estado:"recusado",motivo_recusa:m});feito("Reembolso recusado")});break;
-    case "aprovarEmp": janelaCR("Aprovar empréstimo",cn+" · "+resumoItens(emp()),`
-        <label for="cr-levD">Levantamento<input type="date" id="cr-levD" value="${emp().uso.inicio}"></label><label for="cr-levH">Hora<input type="time" id="cr-levH" value="18:00"></label>
-        <label for="cr-devD">Devolução<input type="date" id="cr-devD" value="${emp().uso.fim||emp().uso.inicio}"></label><label for="cr-devH">Hora<input type="time" id="cr-devH" value="18:00"></label>
-        <div class="caixa inteiro">Se ainda não combinaram, deixem as datas em branco. A companhia vê "A combinar".</div>`,"Aprovar",()=>{const e=emp(),lD=$("#cr-levD").value,dD=$("#cr-devD").value;
-        e.estado="aprovado";e.levantamento=lD?{data:lD,hora:$("#cr-levH").value}:null;e.devolucao=dD?{data:dD,hora:$("#cr-devH").value}:null;feito("Empréstimo aprovado")});break;
-    case "recusarEmp": janelaCR("Recusar empréstimo",cn+" · "+resumoItens(emp()),`<label class="inteiro" for="cr-motivo">Motivo<textarea id="cr-motivo" rows="3"></textarea></label>`,"Recusar",()=>{const m=$("#cr-motivo").value.trim();if(!m){toast("Escrevam o motivo");return}Object.assign(emp(),{estado:"recusado",motivo_recusa:m});feito("Empréstimo recusado")});break;
-    case "levantadoEmp": emp().estado="levantado";feito("Material marcado como levantado");break;
-    case "devolvidoEmp": emp().estado="devolvido";feito("Material marcado como devolvido");break;
+    case "confirmarQuota": {const q=t.quotas.find(x=>x.id===id); q.estado="confirmado";feito("Pagamento de quotas confirmado","Pagamento de quotas confirmado: "+eur(q.valor)+".");break;}
+    case "confirmarPA": {const a=t.admissoes.find(x=>x.id===id); a.estado="pago";feito("Pagamento da proposta confirmado","Pagamento da proposta de admissão de "+a.nome+" confirmado.");break;}
+    case "confirmarAtiv": {const [aid,pid]=id.split("|"); const ps=BD.inscricoes[compId][aid].pagamentos||[]; ps.filter(p=>p.estado==="enviado"&&(!pid||p.id===pid)).forEach(p=>p.estado="confirmado"); feito("Pagamento da atividade confirmado","Pagamento da atividade "+(BD.atividades.find(x=>x.id===aid)?.nome||"")+" confirmado.");break;}
+    case "aprovarReemb": reemb().estado="aprovado";feito("Reembolso aprovado","Reembolso de "+eur(reemb().valor)+" para "+reemb().nome+" aprovado.");break;
+    case "pagoReemb": reemb().estado="pago";feito("Reembolso marcado como pago","Reembolso de "+eur(reemb().valor)+" para "+reemb().nome+" já foi pago.");break;
+    case "recusarReemb": janelaCR("Recusar reembolso",cn+" · "+reemb().nome,`<label class="inteiro" for="cr-motivo">Motivo<textarea id="cr-motivo" rows="3"></textarea></label>`,"Recusar",()=>{const m=$("#cr-motivo").value.trim();if(!m){toast("Escrevam o motivo");return}const nr=reemb().nome;Object.assign(reemb(),{estado:"recusado",motivo_recusa:m});feito("Reembolso recusado","Reembolso de "+nr+" recusado. Motivo: "+m)});break;
+    case "aprovarEmp": {
+      const linhasOpc=(tipo,n,dataBase)=>`<div class="opcoes-emp inteiro">
+        <div class="opc-cab"><span></span><span>Dia</span><span>Das</span><span>Às</span><span>Onde</span></div>
+        ${[...Array(n)].map((_,i)=>`
+        <div class="opc-linha"><span class="opc-n">${i+1}</span>
+          <input type="date" id="${tipo}-d${i}" aria-label="Dia da opção ${i+1}" value="${i===0?dataBase:""}">
+          <input type="time" id="${tipo}-h${i}" aria-label="Hora de início da opção ${i+1}" value="${i===0?"19:00":""}">
+          <input type="time" id="${tipo}-f${i}" aria-label="Hora de fim da opção ${i+1}" value="${i===0?"22:00":""}">
+          <input id="${tipo}-l${i}" aria-label="Onde, na opção ${i+1}" placeholder="Ex.: Sede Nacional" value="${i===0?esc(BD.config?.local_emprestimos||""):""}">
+        </div>`).join("")}</div>`;
+      janelaCR("Aprovar empréstimo",cn+" · "+resumoItens(emp()),`
+        <span class="rotulo inteiro" style="color:var(--azul)">Opções de levantamento</span>
+        ${linhasOpc("lev",3,emp().uso.inicio)}
+        <span class="rotulo inteiro" style="color:var(--azul);margin-top:6px">Opções de devolução</span>
+        ${linhasOpc("dev",3,emp().uso.fim||emp().uso.inicio)}
+        <label class="inteiro" for="emp-recurso" style="margin-top:4px">Se nenhuma destas der<input id="emp-recurso" placeholder="Ex.: ligar à Teresa, 912 345 678" value="${esc(emp().recurso||BD.config?.recurso_emprestimos||"")}"></label>
+        <div class="caixa inteiro">Cada linha é uma janela de horas: dia, das/às e onde. Podem dar até três de cada. Se derem mais do que uma, a companhia escolhe na plataforma e vocês veem a escolha nas Alterações. Se deixarem tudo vazio, a companhia vê "A combinar".</div>`,"Aprovar",()=>{
+        const ler=tipo=>[0,1,2].map(i=>({data:$("#"+tipo+"-d"+i).value, hora:$("#"+tipo+"-h"+i).value||"19:00", horaFim:$("#"+tipo+"-f"+i).value||"", local:$("#"+tipo+"-l"+i).value.trim()})).filter(o=>o.data);
+        const e=emp(), lev=ler("lev"), dev=ler("dev");
+        e.estado="aprovado";
+        e.levantamentoOpcoes=lev; e.devolucaoOpcoes=dev;
+        e.levantamento=lev.length===1?lev[0]:null;
+        e.devolucao=dev.length===1?dev[0]:null;
+        e.recurso=$("#emp-recurso").value.trim();
+        const txt=o=>fmt(o.data)+", "+horasOpc(o)+(o.local?", "+o.local:"");
+        const resumo=[lev.length?"levantamento: "+lev.map(txt).join(" ou "):"", dev.length?"devolução: "+dev.map(txt).join(" ou "):""].filter(Boolean).join("; ");
+        feito("Empréstimo aprovado", "Empréstimo aprovado ("+resumoItens(e)+")"+(resumo?". Opções de "+resumo:". Levantamento e devolução a combinar")+(e.recurso?". Se nenhuma der: "+e.recurso:""));
+      });break;}
+    case "recusarEmp": janelaCR("Recusar empréstimo",cn+" · "+resumoItens(emp()),`<label class="inteiro" for="cr-motivo">Motivo<textarea id="cr-motivo" rows="3"></textarea></label>`,"Recusar",()=>{const m=$("#cr-motivo").value.trim();if(!m){toast("Escrevam o motivo");return}const re=resumoItens(emp());Object.assign(emp(),{estado:"recusado",motivo_recusa:m});feito("Empréstimo recusado","Pedido de empréstimo recusado ("+re+"). Motivo: "+m)});break;
+    case "levantadoEmp": emp().estado="levantado";feito("Material marcado como levantado","Material levantado: "+resumoItens(emp())+".");break;
+    case "devolvidoEmp": emp().estado="devolvido";feito("Material marcado como devolvido","Material devolvido: "+resumoItens(emp())+". Obrigada!");break;
   }
 }
 function janelaNovaAtividade(ed){
@@ -2222,6 +2275,37 @@ async function abrirDocumento(caminho){
 const nomeDoc = x => typeof x === "string" ? x : (x && x.ficheiro) || "";
 const camDoc  = x => typeof x === "string" ? "" : (x && x.caminho) || "";
 const botaoDoc = (x, texto) => camDoc(x) ? `<button class="btn texto pequeno" data-abrir="${esc(camDoc(x))}">${texto||"Abrir"}</button>` : "";
+/* ---------- avisos por email às companhias ---------- */
+let avisos = {};          /* companhia -> linhas por enviar */
+let tempoAviso = null;
+let avisosFalharam = false;
+function totalAvisos(){ return Object.values(avisos).reduce((a,l)=>a+l.length,0) }
+function anotarAviso(compId, texto){
+  if(!E.cr || !compId || !COMPANHIAS.some(c=>c.id===compId)) return;
+  (avisos[compId] = avisos[compId] || []).push(texto);
+  clearTimeout(tempoAviso);
+  tempoAviso = setTimeout(() => { enviarAvisos().catch(()=>{}) }, 45000);
+}
+async function enviarAvisos(aviso){
+  const comps = Object.keys(avisos).filter(k => avisos[k].length);
+  if(!comps.length) return;
+  if(aviso) toast("A enviar os avisos…");
+  for(const id of comps){
+    const c = COMPANHIAS.find(x => x.id === id);
+    const linhas = avisos[id];
+    try{
+      const {error} = await sb.functions.invoke("avisar", {body:{para:c.email, companhia:c.nome, linhas}});
+      if(error) throw error;
+      delete avisos[id];
+      avisosFalharam = false;
+    }catch(e){
+      avisosFalharam = true;
+      if(aviso) toast("Não consegui enviar o aviso a " + c.nome + ". As respostas ficaram guardadas; podem tentar outra vez.");
+      break;
+    }
+  }
+  desenhar();
+}
 async function comEnvio(id, trabalho, mensagem){
   const b = $(id); if(!b) return;
   const txt = b.textContent; b.disabled = true; b.textContent = "A enviar…";
@@ -2500,6 +2584,7 @@ function pendentes(id){
     if(!i && !passou(a.prazo) && diasAte(a.prazo)<=14) out.push({area:"atividades",tipo:"Atividade",t:a.nome,d:"Confirmem quem vai até "+fmt(a.prazo)+"."});
     if(i){const k=contaPag(a,i); if(k.falta>0) out.push({area:"tesouraria",sep:"atividades",tipo:"Pagamento de atividade",t:a.nome+" · "+eur(k.falta),d:k.conf+k.env>0?"O valor da inscrição mudou. Falta pagar a diferença.":"Façam a transferência e enviem o comprovativo."});}
   });
+  (BD.emprestimos||[]).filter(e=>e.comp===id).forEach(e=>{const falta=porEscolher(e); if(falta.length) out.push({area:"emprestimos",tipo:"Empréstimo",t:"Falta escolher "+falta.map(t=>t==="lev"?"o levantamento":"a devolução").join(" e "),d:resumoItens(e)+" · o CR deu mais do que uma hipótese."})});
   (BD.emprestimos||[]).filter(e=>e.comp===id&&e.estado==="levantado"&&e.devolucao&&passou(e.devolucao.data)).forEach(e=>out.push({area:"emprestimos",tipo:"Empréstimo",t:"Devolução em atraso",d:resumoItens(e)+" · devolver até "+fmt(e.devolucao.data)+"."}));
   if(s && s.atual && t && passou(PRAZOS.quotas)){const q=contasQuotas(id); if(q.falta>0) out.push({area:"tesouraria",sep:"quotas",tipo:"Quotas",t:"Faltam "+eur(q.falta)+" de quotas",d:"Façam a transferência e enviem o comprovativo na Tesouraria."});}
   return out;
@@ -2732,6 +2817,7 @@ document.addEventListener("click",e=>{
   if(d.crNovaAtiv!==undefined){janelaNovaAtividade();return}
   if(d.crPessoa){janelaPessoaCR(d.crPessoa);return}
   if(d.abrir){abrirDocumento(d.abrir);return}
+  if(b.id==="avisarJa"){enviarAvisos(true);return}
   if(b.id==="exportarContactos"){exportarContactos().catch(e=>toast(e.message));return}
   if(d.crsep){irPara("#/cr/tesouraria/"+d.crsep);return}
   if(b.id==="zipFaturas"){descarregarFaturas();return}
@@ -2757,6 +2843,14 @@ document.addEventListener("click",e=>{
   if(d.obs){const [a,c]=d.obs.split("|");janelaObs(a,c);return}
   if(d.mais||d.menos){const id=d.mais||d.menos;E.pedido.qtd[id]=Math.max(0,(E.pedido.qtd[id]||0)+(d.mais?1:-1));atualizarPedido();return}
   if(b.id==="enviarPedido"){enviarPedido();return}
+  if(d.escolher){
+    const [idEmp,tipo,i]=d.escolher.split("|");
+    const e=BD.emprestimos.find(x=>x.id===idEmp), o=opcoesEmp(e,tipo)[+i];
+    if(!o) return;
+    if(tipo==="lev") e.levantamento=o; else e.devolucao=o;
+    const nome=tipo==="lev"?"levantamento":"devolução";
+    registar("Empréstimos",`Escolheu o ${nome} de ${resumoItens(e)}: ${fmt(o.data)}, ${horasOpc(o)}${o.local?", "+o.local:""}`);
+    guardar();desenhar();toast("Escolha guardada. O CR foi avisado.");return}
   if(d.cancelarEmp){const e=BD.emprestimos.find(x=>x.id===d.cancelarEmp);e.estado="cancelado";registar("Empréstimos","Cancelou o pedido de "+resumoItens(e));guardar();desenhar();toast("Pedido cancelado");return}
   if(d.todas){const a=ativs().find(x=>x.id===E.ativ), s=E.rascunho, chave=d.todas==="dir"?"dirigentes":"guias";
     const nomes=d.todas==="dir"?pessoas(E.comp).map(p=>p.nome):nomesGuias(d.todas.slice(2)).todos;
