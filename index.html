@@ -64,7 +64,20 @@ input:focus,select:focus{border-color:var(--azul-claro);outline:none;box-shadow:
 
 /* ---------- aplicação ---------- */
 .app{min-height:100vh;min-height:100dvh;display:grid;grid-template-columns:268px minmax(0,1fr)}
-.lateral{padding:30px 22px 26px;display:flex;flex-direction:column;gap:30px;position:sticky;top:0;height:100vh}
+.lateral{padding:30px 22px 26px;display:flex;flex-direction:column;gap:30px;position:sticky;top:0;height:100vh;overflow-y:auto;overflow-x:hidden}
+.conta-bloco{position:relative}
+.conta-botao{display:grid;gap:10px;width:100%;text-align:left;background:none;border:0;padding:4px 6px 6px 0;margin:-4px 0 0;color:inherit;font:inherit;cursor:pointer;border-radius:4px}
+.conta-botao:hover{background:rgba(255,255,255,.07)}
+.conta-botao .rule{color:#fff}
+.conta-botao h2{font-size:21px;font-weight:700;text-transform:uppercase;line-height:1.1}
+.conta-botao p{font-size:12.5px;color:rgba(255,255,255,.75);display:flex;align-items:center;gap:6px;word-break:break-all}
+.conta-botao svg{width:9px;flex:none;transition:transform .15s}
+.conta-botao[aria-expanded="true"] svg{transform:rotate(180deg)}
+.conta-menu{position:absolute;left:0;right:0;top:calc(100% + 8px);z-index:30;background:#fff;color:var(--tinta);padding:14px;display:grid;gap:8px;box-shadow:0 10px 30px rgba(14,64,116,.28);border-radius:4px}
+.conta-menu b{font-size:13px;word-break:break-all;color:var(--azul)}
+.conta-menu .rotulo{color:var(--tinta-3)}
+.conta-menu .sub{font-size:12px;color:var(--tinta-3);line-height:1.4;margin:0}
+.conta-menu .btn{justify-self:start}
 .lateral .marca{color:#fff}
 .lateral .marca img{height:50px}
 .lateral .marca b{font-size:12.5px}
@@ -487,6 +500,20 @@ a.ativ-cartao{text-decoration:none;color:inherit;grid-template-columns:auto minm
 .acamp-form .caixa{margin-top:4px}
 .ac-ramos{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
 .ac-ramos label{display:grid;gap:6px}
+.dir-tabela{display:grid;gap:7px}
+.dir-linha,.dir-cab{display:grid;grid-template-columns:16px 1.5fr 110px 140px 1fr 1fr;gap:8px;align-items:center}
+.dir-cab span{font-size:10.5px;letter-spacing:1px;text-transform:uppercase;color:var(--tinta-3)}
+.dir-linha.extra{display:none}
+.dir-linha input,.dir-linha select{font:inherit;font-size:13.5px;padding:7px 9px;border:1px solid var(--azul-20);background:#fff;color:var(--tinta)}
+.dir-linha input:disabled{background:var(--azul-05);color:var(--tinta-3)}
+.escondido{display:none!important}
+.ac-racio{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px;border-top:1px solid var(--azul-10);margin-top:10px;padding-top:10px}
+.ac-racio div{display:grid;gap:2px}
+.ac-racio b{font-size:15px;color:var(--azul)}
+.ac-racio span.sub,.ac-racio div>span:last-child{font-size:12px;color:var(--tinta-3)}
+@media (max-width:860px){.dir-linha,.dir-cab{grid-template-columns:16px 1fr 1fr;grid-auto-rows:auto}.dir-cab{display:none}}
+.ativ-lista.passadas .ativ-cartao{opacity:.72}
+.ativ-lista.passadas .ativ-cartao:hover{opacity:1}
 .ac-barras{display:flex;gap:14px;flex-wrap:wrap;border-top:1px solid var(--azul-10);margin-top:10px;padding-top:10px;font-size:13px;color:var(--tinta-2)}
 .ac-barras b{color:var(--tinta)}
 @media (max-width:760px){.ac-ramos{grid-template-columns:repeat(2,1fr)}}
@@ -1128,9 +1155,13 @@ function extrasAtiv(a){
   return blocos?`<div class="ativ-textos">${blocos}</div>`:"";
 }
 function dataTexto(a){const d=fmt(a.data);return a.dataFim?`${d} a ${fmt(a.dataFim)}`:d}
+/* Uma atividade conta como passada no dia seguinte ao ultimo dia dela. */
+const fimAtiv = a => a.dataFim || a.data;
+const jaAconteceu = a => !!fimAtiv(a) && passou(fimAtiv(a));
 function diasAte(d){return Math.round((new Date(d)-HOJE)/86400000)}
 function estadoInsc(a){
   const i=insc(a.id), fechado=passou(a.prazo);
+  if(jaAconteceu(a)) return i ? {cls:"ok",txt:"Participaram"} : {cls:"",txt:"Não foram"};
   if(i) return {cls:"ok",txt:"Confirmada"};
   if(fechado) return {cls:"devolvida",txt:"Prazo terminado"};
   const d=diasAte(a.prazo); return {cls:d<=14?"devolvida":"analise",txt:d<=14?`Faltam ${d} dias`:"Por confirmar"};
@@ -1153,17 +1184,24 @@ function pagamentoTexto(a,i){
 function vistaAtividades(){
   if(E.ativ) return vistaAtividade(ativs().find(a=>a.id===E.ativ));
   const c=comp(E.comp);
-  const cartoes=[...ativs()].sort((a,b)=>a.data.localeCompare(b.data)).map(a=>{
+  const cartao=a=>{
     const i=insc(a.id), est=estadoInsc(a), v=custoInsc(a,i), d=new Date(a.data);
     return `<button class="ativ-cartao" data-abrir-ativ="${a.id}">
       <div class="ativ-data"><span>${String(d.getDate()).padStart(2,"0")}</span><small>${MESES[d.getMonth()]} ${d.getFullYear()}</small></div>
       <div class="ativ-info"><span class="rotulo">${publicoTexto(a)}</span><h3>${esc(a.nome)}</h3>
-        <span class="ativ-meta">${dataTexto(a)} · Confirmar até ${fmt(a.prazo)}${a.custoGuia||a.custoDirigente?` · ${a.custoGuia?eur(a.custoGuia)+" por guia":""}${a.custoDirigente?" · "+eur(a.custoDirigente)+" por dirigente":""}`:""}</span></div>
+        <span class="ativ-meta">${[dataTexto(a), jaAconteceu(a)?"":"Confirmar até "+fmt(a.prazo), a.custoGuia?eur(a.custoGuia)+" por guia":"", a.custoDirigente?eur(a.custoDirigente)+" por dirigente":""].filter(Boolean).join(" · ")}</span></div>
       <div class="ativ-estado"><span class="estado ${est.cls}">${est.txt}</span>${i?`<span class="sub">${i.guias.length} guias · ${i.dirigentes.length} dirigentes${i.amigas?.length?` · ${i.amigas.length} amigas`:""}</span>`:""}${i&&v?`<span class="sub">${eur(v)} ${pagamentoTexto(a,i)}</span>`:""}</div>
-    </button>`}).join("");
+    </button>`};
+  const todas=[...ativs()];
+  const porVir=todas.filter(a=>!jaAconteceu(a)).sort((a,b)=>a.data.localeCompare(b.data));
+  const passadas=todas.filter(jaAconteceu).sort((a,b)=>b.data.localeCompare(a.data));
+  const porPagar=passadas.filter(a=>{const i=insc(a.id); return i && contaPag(a,i).falta>0});
   return `<div class="topo"><div class="running" style="text-align:right">${esc(c.nome)}<span>Atividades</span></div></div>
   <div class="cabecalho"><div><div class="num">04</div><span class="rule"></span><h1>Atividades</h1><p>As atividades do Comissariado Regional (CR). Em cada uma, confirmem quem vai e, se houver custo, façam o pagamento.</p></div></div>
-  <div class="ativ-lista">${cartoes}</div>`;
+  <section class="seccao"><div class="barra-tabela"><div><h3>Por vir</h3></div></div>
+    ${porVir.length?`<div class="ativ-lista">${porVir.map(cartao).join("")}</div>`:`<p class="vazio" style="text-align:left;padding:0;color:var(--tinta-3)">Não há atividades marcadas de momento.</p>`}</section>
+  ${passadas.length?`<section class="seccao espaco"><div class="barra-tabela"><div><h3>Já aconteceram</h3>${porPagar.length?`<p>Nestas já não há nada a confirmar, mas ainda falta pagar ${porPagar.length===1?"uma":porPagar.length}.</p>`:`<p>Ficam aqui só para memória. Não há nada a fazer.</p>`}</div></div>
+    <div class="ativ-lista passadas">${passadas.map(cartao).join("")}</div></section>`:""}`;
 }
 function vistaAtividade(a){
   const c=comp(E.comp), i=insc(a.id), fechado=passou(a.prazo), s=cen();
@@ -1313,15 +1351,60 @@ function migalhas(passos){return `<nav class="migalhas" aria-label="Estás aqui"
 
 /* ================= Acampamentos e acantonamentos ================= */
 const TIPO_AC = ["Acampamento","Acantonamento"];
-const acampVazio = () => ({tipo:"Acampamento", nome:"", inicio:"", fim:"", local:"", freguesia:"", concelho:"", responsavel:"", contacto:"", guias:{}, dirCom:0, dirSem:0, obs:""});
+const acampVazio = () => ({tipo:"Acampamento", nome:"", inicio:"", fim:"", local:"", freguesia:"", concelho:"", responsavel:"", contacto:"", guias:{}, dirigentes:[], juntas:{com:false,nomes:"",guias:0,dirCom:0,dirSem:0}, obs:""});
 const acampsDe = id => (BD.acampamentos||[]).filter(a => a.comp === id).sort((x,y)=>(y.inicio||"").localeCompare(x.inicio||""));
 const totalGuias = a => RAMOS_CENSOS.reduce((t,r)=>t+(+a.guias?.[r]||0),0);
-const totalDir = a => (+a.dirCom||0)+(+a.dirSem||0);
+/* Lista de dirigentes. Os acampamentos antigos so tinham duas contagens: convertemos. */
+function dirsDe(a){
+  if(Array.isArray(a.dirigentes) && a.dirigentes.length) return a.dirigentes;
+  const L=[];
+  for(let i=0;i<(+a.dirCom||0);i++) L.push({nome:"", compromisso:true, de:"", ate:""});
+  for(let i=0;i<(+a.dirSem||0);i++) L.push({nome:"", compromisso:false, de:"", ate:""});
+  return L;
+}
+const totalDir = a => dirsDe(a).length;
+const dirComDe = a => dirsDe(a).filter(d=>d.compromisso).length;
+const parciaisDe = a => dirsDe(a).filter(d=>d.de||d.ate);
+const juntasDe = a => ({com:false,nomes:"",guias:0,dirCom:0,dirSem:0, ...(a.juntas||{})});
+function diasDe(a){
+  if(!a.inicio||!a.fim) return [];
+  const L=[]; const d=new Date(a.inicio+"T12:00:00"), f=new Date(a.fim+"T12:00:00");
+  while(d<=f && L.length<60){ L.push(iso(d)); d.setDate(d.getDate()+1) }
+  return L;
+}
+function presentesEm(a, dia){
+  return dirsDe(a).filter(d => (!d.de || dia >= d.de) && (!d.ate || dia <= d.ate));
+}
+/* Racio por dia. Devolve o pior dia: o que tem menos dirigentes para o mesmo numero de guias. */
+function racioAc(a, comAsOutras){
+  const j = juntasDe(a);
+  const guias = totalGuias(a) + (comAsOutras && j.com ? (+j.guias||0) : 0);
+  const extraCom = comAsOutras && j.com ? (+j.dirCom||0) : 0;
+  const extraTot = comAsOutras && j.com ? (+j.dirCom||0)+(+j.dirSem||0) : 0;
+  const dias = diasDe(a);
+  if(!guias || !dias.length) return null;
+  let pior = null;
+  dias.forEach(dia => {
+    const pres = presentesEm(a, dia);
+    const com = pres.filter(d=>d.compromisso).length + extraCom;
+    const tot = pres.length + extraTot;
+    const r = {dia, guias, com, tot, racio: com ? guias/com : Infinity};
+    if(!pior || r.racio > pior.racio) pior = r;
+  });
+  const iguais = dias.every(dia => presentesEm(a,dia).length === dirsDe(a).length);
+  return {...pior, guias, todosOsDiasIguais: iguais, dias: dias.length};
+}
+function racioTexto(r){
+  if(!r) return "";
+  if(!r.com) return "sem dirigentes com compromisso";
+  return (Math.round(r.racio*10)/10).toString().replace(".",",") + " guias por dirigente com compromisso";
+}
 const noitesAc = a => { if(!a.inicio||!a.fim) return 0; return Math.max(0, Math.round((new Date(a.fim)-new Date(a.inicio))/86400000)) };
 function sitioAc(a){ return [a.local, [a.freguesia, a.concelho].filter(Boolean).join(", ")].filter(Boolean).join(" · ") }
 
 function formAcamp(a){
   const nomes = pessoas().map(p=>p.nome);
+  const dirs = dirsDe(a), j = juntasDe(a);
   const num = (id,v,rot) => `<label for="${id}">${rot}<input type="number" min="0" step="1" id="${id}" value="${v||0}"></label>`;
   return `<form class="form acamp-form" id="acampForm" autocomplete="off">
     <label for="ac-tipo">O que é<select id="ac-tipo">${TIPO_AC.map(t=>`<option ${a.tipo===t?"selected":""}>${t}</option>`).join("")}</select></label>
@@ -1336,9 +1419,28 @@ function formAcamp(a){
     <label for="ac-contacto">Contacto<input id="ac-contacto" inputmode="tel" value="${esc(a.contacto)}" placeholder="Telemóvel"></label>
     <span class="rotulo inteiro" style="color:var(--azul);margin-top:6px">Quantas guias vão, por ramo</span>
     <div class="ac-ramos inteiro">${RAMOS_CENSOS.map(r=>`<label for="ac-g-${r}"><span class="ramo"><i style="background:${RAMOS[r]}"></i>${r}</span><input type="number" min="0" step="1" id="ac-g-${r}" value="${a.guias?.[r]||0}"></label>`).join("")}</div>
-    <span class="rotulo inteiro" style="color:var(--azul);margin-top:6px">Quantas dirigentes vão</span>
-    ${num("ac-dircom", a.dirCom, "Com compromisso")}
-    ${num("ac-dirsem", a.dirSem, "Sem compromisso")}
+    <span class="rotulo inteiro" style="color:var(--azul);margin-top:6px">Quem vai da chefia</span>
+    <div class="dir-tabela inteiro">
+      <div class="dir-cab"><span></span><span>Nome</span><span>Compromisso</span><span>Vai</span><span>De</span><span>Até</span></div>
+      ${[...Array(10)].map((_,i)=>{const d=dirs[i]||{};return `
+      <div class="dir-linha${i>=Math.max(5,dirs.length+1)?" extra":""}"><span class="opc-n">${i+1}</span>
+        <input id="dir-n${i}" list="ac-nomes" aria-label="Nome da dirigente ${i+1}" value="${esc(d.nome||"")}" placeholder="${i<dirs.length?"":"(vazio = não conta)"}">
+        <select id="dir-c${i}" aria-label="Tem compromisso?"><option value="1" ${d.compromisso!==false?"selected":""}>Com</option><option value="0" ${d.compromisso===false?"selected":""}>Sem</option></select>
+        <select id="dir-p${i}" data-dir-parcial="${i}" aria-label="Vai todos os dias?"><option value="0" ${(d.de||d.ate)?"":"selected"}>Todos os dias</option><option value="1" ${(d.de||d.ate)?"selected":""}>Só parte</option></select>
+        <input type="date" id="dir-d${i}" aria-label="Desde" value="${d.de||""}" ${(d.de||d.ate)?"":"disabled"}>
+        <input type="date" id="dir-a${i}" aria-label="Até" value="${d.ate||""}" ${(d.de||d.ate)?"":"disabled"}>
+      </div>`}).join("")}
+      <button type="button" class="btn texto pequeno" id="dirMais" style="justify-self:start">Mostrar mais linhas</button>
+    </div>
+    <div class="caixa inteiro">Uma linha por dirigente. Quem só vai parte do tempo escolhe "Só parte" e marca os dias: o rácio é contado dia a dia, com quem lá está mesmo. Deixem em branco quem não tem nome conhecido ainda, mas escrevam alguma coisa (ex.: "a confirmar") para contar.</div>
+    <span class="rotulo inteiro" style="color:var(--azul);margin-top:6px">Vão com outra companhia?</span>
+    <label class="inteiro" for="ac-jcom"><select id="ac-jcom" data-juntas><option value="0" ${j.com?"":"selected"}>Não, vamos só nós</option><option value="1" ${j.com?"selected":""}>Sim, vamos acampar com outra(s)</option></select></label>
+    <label class="inteiro ac-j ${j.com?"":"escondido"}" for="ac-jnomes">Com quem<input id="ac-jnomes" value="${esc(j.nomes||"")}" placeholder="Ex.: 1.ª Oeiras"></label>
+    <div class="ac-j ${j.com?"":"escondido"} inteiro ac-ramos">
+      ${num("ac-jguias", j.guias, "Guias delas")}
+      ${num("ac-jdircom", j.dirCom, "Dirigentes delas com compromisso")}
+      ${num("ac-jdirsem", j.dirSem, "Dirigentes delas sem compromisso")}
+    </div>
     <label class="inteiro" for="ac-obs">Mais alguma coisa (opcional)<textarea id="ac-obs" rows="2" placeholder="Ex.: vamos partilhar o campo com outra companhia">${esc(a.obs)}</textarea></label>
     <div class="caixa inteiro">Isto é para o Comissariado Regional saber onde estão as vossas guias e quem é a responsável. Não é um pedido: fica logo registado.</div>
     <div class="acoes inteiro"><button type="button" class="btn texto" id="acampCancelar">Cancelar</button><button type="button" class="btn primario" id="acampGuardar">Guardar</button></div>
@@ -1348,9 +1450,18 @@ function lerAcamp(){
   const v = id => $("#"+id).value.trim();
   const n = id => Math.max(0, parseInt($("#"+id).value,10)||0);
   const guias = {}; RAMOS_CENSOS.forEach(r => guias[r] = Math.max(0, parseInt($("#ac-g-"+r).value,10)||0));
+  const dirigentes=[];
+  for(let i=0;i<10;i++){
+    const nm=$("#dir-n"+i); if(!nm) continue;
+    const nome=nm.value.trim(); if(!nome) continue;
+    const parcial=$("#dir-p"+i).value==="1";
+    dirigentes.push({nome, compromisso:$("#dir-c"+i).value==="1", de:parcial?$("#dir-d"+i).value:"", ate:parcial?$("#dir-a"+i).value:""});
+  }
+  const jcom=$("#ac-jcom").value==="1";
+  const juntas={com:jcom, nomes:jcom?v("ac-jnomes"):"", guias:jcom?n("ac-jguias"):0, dirCom:jcom?n("ac-jdircom"):0, dirSem:jcom?n("ac-jdirsem"):0};
   return {tipo:$("#ac-tipo").value, nome:v("ac-nome"), inicio:v("ac-inicio"), fim:v("ac-fim"),
     local:v("ac-local"), freguesia:v("ac-freguesia"), concelho:v("ac-concelho"),
-    responsavel:v("ac-resp"), contacto:v("ac-contacto"), guias, dirCom:n("ac-dircom"), dirSem:n("ac-dirsem"), obs:v("ac-obs")};
+    responsavel:v("ac-resp"), contacto:v("ac-contacto"), guias, dirigentes, juntas, dirCom:0, dirSem:0, obs:v("ac-obs")};
 }
 function guardarAcamp(){
   const d = lerAcamp();
@@ -1359,8 +1470,11 @@ function guardarAcamp(){
   if(!d.local){ toast("Falta dizer onde dormem."); return }
   if(!d.responsavel){ toast("Falta a chefe responsável."); return }
   if(!totalGuias(d)){ toast("Falta dizer quantas guias vão."); return }
+  if(!d.dirigentes.length){ toast("Falta dizer quem vai da chefia."); return }
+  const maus = d.dirigentes.filter(x=>(x.de&&(x.de<d.inicio||x.de>d.fim))||(x.ate&&(x.ate<d.inicio||x.ate>d.fim))||(x.de&&x.ate&&x.ate<x.de));
+  if(maus.length){ toast("Os dias de "+maus[0].nome+" estão fora do acampamento."); return }
   BD.acampamentos = BD.acampamentos || [];
-  const titulo = d.tipo + (d.nome?" · "+d.nome:"") + ", " + fmt(d.inicio) + " a " + fmt(d.fim) + ", " + sitioAc(d) + " · " + totalGuias(d) + " guias e " + totalDir(d) + " dirigentes · responsável: " + d.responsavel + (d.contacto?" ("+d.contacto+")":"");
+  const titulo = d.tipo + (d.nome?" · "+d.nome:"") + ", " + fmt(d.inicio) + " a " + fmt(d.fim) + ", " + sitioAc(d) + " · " + totalGuias(d) + " guias e " + totalDir(d) + " dirigentes (" + racioTexto(racioAc(d,true)) + ") · responsável: " + d.responsavel + (d.contacto?" ("+d.contacto+")":"");
   if(E.acampForm === "novo"){
     BD.acampamentos.push({id:"ac"+Date.now(), comp:E.comp, criado:iso(HOJE), ...d});
     registar("Acampamentos", "Declarou um "+titulo.toLowerCase().slice(0,1)+titulo.slice(1));
@@ -1381,12 +1495,24 @@ function cartaoAcamp(a, comCR){
     <div class="emp-datas">
       <div><span class="rotulo">Onde dormem</span><b>${esc(a.local)}</b><span>${esc([a.freguesia,a.concelho].filter(Boolean).join(", "))||"—"}</span></div>
       <div><span class="rotulo">Responsável</span><b>${esc(a.responsavel)}</b><span>${esc(a.contacto)||"sem contacto"}</span></div>
-      <div><span class="rotulo">Vão</span><b>${totalGuias(a)} ${totalGuias(a)===1?"guia":"guias"}</b><span>${totalDir(a)} ${totalDir(a)===1?"dirigente":"dirigentes"} (${a.dirCom||0} c/ compromisso, ${a.dirSem||0} s/ compromisso)</span></div>
+      <div><span class="rotulo">Vão</span><b>${totalGuias(a)} ${totalGuias(a)===1?"guia":"guias"}</b><span>${totalDir(a)} ${totalDir(a)===1?"dirigente":"dirigentes"} (${dirComDe(a)} com compromisso)</span></div>
     </div>
+    ${blocoRacio(a)}
     <div class="ac-barras">${RAMOS_CENSOS.filter(r=>+a.guias?.[r]).map(r=>`<span class="ramo"><i style="background:${RAMOS[r]}"></i>${r}: <b>${a.guias[r]}</b></span>`).join("")||'<span class="sub">Sem guias indicadas</span>'}</div>
+    ${parciaisDe(a).length?`<p class="emp-nota"><b>Só parte do tempo:</b> ${parciaisDe(a).map(d=>esc(d.nome)+" ("+(d.de?fmt(d.de):"início")+" a "+(d.ate?fmt(d.ate):"fim")+")").join(" · ")}</p>`:""}
     ${a.obs?`<p class="emp-nota">${esc(a.obs)}</p>`:""}
     ${comCR?"":`<div class="acoes" style="justify-content:flex-start"><button class="btn pequeno" data-acamp-editar="${a.id}">Alterar</button><button class="btn texto pequeno" data-acamp-apagar="${a.id}" style="color:var(--alerta)">Apagar</button></div>`}
   </article>`;
+}
+function blocoRacio(a){
+  const j = juntasDe(a);
+  const so = racioAc(a,false), tudo = racioAc(a,true);
+  if(!so) return "";
+  const linha = (rot, r) => `<div><span class="rotulo">${rot}</span><b>${racioTexto(r)}</b><span>${r.todosOsDiasIguais?"igual todos os dias":"dia mais fraco: "+fmt(r.dia)+", "+r.com+" com compromisso"}</span></div>`;
+  return `<div class="ac-racio">
+    ${linha(j.com?"Rácio só da vossa companhia":"Rácio", so)}
+    ${j.com?linha("Rácio com "+(esc(j.nomes)||"as outras"), tudo):""}
+  </div>`;
 }
 function vistaAcampamentos(){
   const c = comp(E.comp), todos = acampsDe(E.comp);
@@ -1420,8 +1546,9 @@ function crAcampamentos(){
     <td>${esc(x.a.responsavel)}<span class="sub num">${esc(x.a.contacto)}</span></td>
     <td>${RAMOS_CENSOS.filter(r=>+x.a.guias?.[r]).map(r=>`<span class="ramo"><i style="background:${RAMOS[r]}"></i>${r} ${x.a.guias[r]}</span>`).join(" ")||'<span class="sub">—</span>'}</td>
     <td class="valor">${totalGuias(x.a)}</td>
-    <td class="valor">${x.a.dirCom||0} / ${x.a.dirSem||0}</td>
-  </tr>`).join("") || `<tr><td colspan="7" class="vazio">Não há acampamentos com estes filtros.</td></tr>`;
+    <td class="valor">${totalDir(x.a)}<span class="sub">${dirComDe(x.a)} c/ compromisso</span></td>
+    <td>${(()=>{const r=racioAc(x.a,true);if(!r)return'<span class="sub">—</span>';const j=juntasDe(x.a);return `<b>${racioTexto(r)}</b><span class="sub">${r.todosOsDiasIguais?"todos os dias":"pior dia "+fmt(r.dia)}${j.com?" · com "+esc(j.nomes||"outra companhia"):""}</span>`})()}</td>
+  </tr>`).join("") || `<tr><td colspan="8" class="vazio">Não há acampamentos com estes filtros.</td></tr>`;
   return `<div class="topo"><div class="running" style="text-align:right">Comissariado Regional<span>Acampamentos</span></div></div>
   <div class="cabecalho"><div><span class="rule"></span><h1>Acampamentos</h1><p>Onde estão as companhias e com quem. São as companhias que declaram; não há nada para aprovar.</p></div></div>
   <div class="numeros">
@@ -1434,7 +1561,7 @@ function crAcampamentos(){
       <label for="ac-f-quando">Quando<select id="ac-f-quando"><option value="porvir" ${f.quando==="porvir"?"selected":""}>Por vir</option><option value="passados" ${f.quando==="passados"?"selected":""}>Já foram</option><option value="todos" ${f.quando==="todos"?"selected":""}>Todos</option></select></label>
       <div class="ct-acoes"><button class="btn pequeno" id="exportarAcamp">Exportar para Excel</button></div>
     </div>
-    <div class="tabela"><table style="min-width:980px"><thead><tr><th>Companhia</th><th>Dias</th><th>Onde dormem</th><th>Responsável</th><th>Guias por ramo</th><th>Guias</th><th>Dir. c/ · s/</th></tr></thead><tbody>${linhas}</tbody></table></div>
+    <div class="tabela"><table style="min-width:1120px"><thead><tr><th>Companhia</th><th>Dias</th><th>Onde dormem</th><th>Responsável</th><th>Guias por ramo</th><th>Guias</th><th>Dirigentes</th><th>Rácio</th></tr></thead><tbody>${linhas}</tbody></table></div>
   </section>`;
 }
 function vistaEmprestimos(){
@@ -1563,6 +1690,22 @@ function pedidosCR(){
   L.forEach(p=>{p.espera=Math.max(0,-diasAte(p.data)); p.urgente=p.tipo==="Empréstimos"&&p.acoes[0][0]==="aprovarEmp"&&diasAte(BD.emprestimos.find(e=>e.id===p.acoes[0][2]).uso.inicio)<=14});
   return L.sort((a,b)=>(b.urgente-a.urgente)||a.data.localeCompare(b.data));
 }
+/* O nome no topo da barra lateral abre um menu com a sessao. */
+function blocoConta(titulo, email){
+  return `<div class="conta-bloco">
+    <button class="conta-botao" id="abrirConta" aria-expanded="${E.menuConta?"true":"false"}">
+      <span class="rule"></span>
+      <h2>${esc(titulo)}</h2>
+      <p>${esc(email||"")}<svg viewBox="0 0 10 6" aria-hidden="true"><path d="M1 1l4 4 4-4" fill="none" stroke="currentColor" stroke-width="1.4"/></svg></p>
+    </button>
+    ${E.menuConta?`<div class="conta-menu">
+      <span class="rotulo">Sessão iniciada como</span>
+      <b>${esc(email||"")}</b>
+      <p class="sub">Terminem a sessão para entrar com outra conta neste computador.</p>
+      <button class="btn pequeno" id="sairMenu">Terminar sessão</button>
+    </div>`:""}
+  </div>`;
+}
 function vistaCR(){
   const pend=pedidosCR();
   const menu=(k,n,c)=>`<button data-cr="${k}" ${E.crVista===k?'aria-current="page"':""}><span class="nome">${n}</span>${c?`<span class="conta">${c}</span>`:""}</button>`;
@@ -1574,7 +1717,7 @@ function vistaCR(){
   return `<div class="app">
     <aside class="lateral painel">${trevos("lateral")}
       ${marca(LOGO_BRANCO)}
-      <div class="companhia"><span class="rule"></span><h2>Comissariado Regional</h2><p>${CR_CONTA.email}</p></div>
+      ${blocoConta("Comissariado Regional", CR_CONTA.email)}
       <nav class="menu" aria-label="Páginas">
         ${totalAvisos()?`<button id="avisarJa" class="aviso-env"><span class="nome">${avisosFalharam?"Avisos por enviar":"A avisar as companhias"}</span><span class="conta">${totalAvisos()}</span></button>`:""}
         ${menu("pedidos","Pedidos",pend.length)}${menu("alteracoes","Alterações",naoVistas().length)}${menu("companhias","Companhias")}${menu("tesouraria","Tesouraria")}${menu("contactos","Contactos")}${menu("atividades","Atividades")}${menu("acampamentos","Acampamentos")}${menu("prazos","Prazos")}
@@ -1684,8 +1827,16 @@ async function exportarAcampamentos(){
         Responsável:x.a.responsavel, Contacto:x.a.contacto};
       RAMOS_CENSOS.forEach(r => l[r] = +x.a.guias?.[r]||0);
       l["Total de guias"]=totalGuias(x.a);
-      l["Dirigentes com compromisso"]=+x.a.dirCom||0;
-      l["Dirigentes sem compromisso"]=+x.a.dirSem||0;
+      l["Dirigentes"]=totalDir(x.a);
+      l["Dirigentes com compromisso"]=dirComDe(x.a);
+      l["Dirigentes sem compromisso"]=totalDir(x.a)-dirComDe(x.a);
+      l["Chefia"]=dirsDe(x.a).map(d=>d.nome+(d.compromisso?"":" (sem compromisso)")+(d.de||d.ate?" ["+(d.de?fmt(d.de):"início")+" a "+(d.ate?fmt(d.ate):"fim")+"]":"")).join(" · ");
+      const r=racioAc(x.a,true), j=juntasDe(x.a);
+      l["Rácio (pior dia)"]=r&&r.com?Math.round(r.racio*10)/10:"";
+      l["Pior dia"]=r?fmt(r.dia):"";
+      l["Com outra companhia"]=j.com?(j.nomes||"sim"):"";
+      l["Guias da outra companhia"]=j.com?+j.guias||0:"";
+      l["Dirigentes da outra companhia"]=j.com?(+j.dirCom||0)+(+j.dirSem||0):"";
       l["Observações"]=x.a.obs||"";
       return l;
     });
@@ -2065,7 +2216,9 @@ function areasComp(id){
   A.tesouraria = mal.length ? {n:"mal", t:mal[0]+(mal.length>1?" · mais "+(mal.length-1):""), d:[...mal,...av]}
     : av.length ? {n:"aviso", t:av[0]+(av.length>1?" · mais "+(av.length-1):""), d:av}
     : {n:"ok", t:"Em ordem", d:[]};
-  const abertas=(BD.atividades||[]).filter(a=>!ins[a.id]&&!passou(a.prazo)), passadas=(BD.atividades||[]).filter(a=>!ins[a.id]&&passou(a.prazo));
+  /* Depois de a atividade acontecer deixa de haver resposta a dar: sai das pendentes. */
+  const abertas=(BD.atividades||[]).filter(a=>!ins[a.id]&&!passou(a.prazo)&&!jaAconteceu(a));
+  const passadas=(BD.atividades||[]).filter(a=>!ins[a.id]&&passou(a.prazo)&&!jaAconteceu(a));
   const porPagar=(BD.atividades||[]).filter(a=>{const i=ins[a.id]; return i && contaPag(a,i).falta>0});
   A.atividades = passadas.length ? {n:"mal", t:passadas.length+(passadas.length===1?" atividade sem resposta":" atividades sem resposta"), d:[...passadas.map(a=>a.nome+" — prazo terminou a "+fmt(a.prazo)+" sem confirmação"), ...porPagar.map(a=>a.nome+" — falta pagar "+eur(contaPag(a,ins[a.id]).falta))]}
     : (abertas.length||porPagar.length) ? {n:"aviso", t:[abertas.length?abertas.length+" por confirmar":"", porPagar.length?porPagar.length+" por pagar":""].filter(Boolean).join(" · "),
@@ -2145,7 +2298,7 @@ const PLURAL_RAMO={Avezinha:"Avezinhas",Aventura:"Aventuras",Caravela:"Caravelas
 function colunasAtiv(a){return [...a.publico.ramos,...(a.publico.dirigentes?["Dirigentes"]:[]),...(a.publico.ramos.length?["Amigas"]:[])]}
 function crAtividades(){
   if(E.crAtiv){const a=BD.atividades.find(x=>x.id===E.crAtiv); if(a) return crAtividade(a)}
-  const cartoes=[...BD.atividades].sort((a,b)=>a.data.localeCompare(b.data)).map(a=>{
+  const cartaoCR=a=>{
     const cols=colunasAtiv(a), tot={}; cols.forEach(k=>tot[k]=0); let conf=0, valor=0, pago=0;
     COMPANHIAS.forEach(c=>{const i=BD.inscricoes[c.id]?.[a.id]; if(!i) return; conf++; const ct=contagemInsc(c.id,i); cols.forEach(k=>tot[k]+=ct[k].length); const k=contaPag(a,i); valor+=k.custo; pago+=k.conf;});
     const d=new Date(a.data), falta=diasAte(a.prazo);
@@ -2154,10 +2307,14 @@ function crAtividades(){
       <div class="ativ-info"><span class="rotulo">${publicoTexto(a)}</span><h3>${esc(a.nome)}</h3>
         <span class="ativ-meta">${conf} de ${COMPANHIAS.length} companhias confirmaram · ${passou(a.prazo)?"prazo terminou a "+fmt(a.prazo):`faltam ${falta} dias para o prazo (${fmt(a.prazo)})`}${valor?` · ${eur(pago)} pagos de ${eur(valor)}`:""}</span>
         <div class="mini-contagens">${cols.map(k=>`<span><b>${tot[k]}</b>${PLURAL_RAMO[k]||k}</span>`).join("")}</div></div>
-    </a>`}).join("");
+    </a>`};
+  const porVirCR=[...BD.atividades].filter(a=>!jaAconteceu(a)).sort((a,b)=>a.data.localeCompare(b.data));
+  const passadasCR=[...BD.atividades].filter(jaAconteceu).sort((a,b)=>b.data.localeCompare(a.data));
   return `<div class="topo"><div class="running" style="text-align:right">Comissariado Regional<span>Atividades</span></div></div>
   <div class="cabecalho"><div><span class="rule"></span><h1>Atividades</h1></div><button class="btn primario" data-cr-nova-ativ>Criar atividade</button></div>
-  <div class="ativ-lista">${cartoes}</div>`;
+  <section class="seccao"><div class="barra-tabela"><div><h3>Por vir</h3></div></div>
+    ${porVirCR.length?`<div class="ativ-lista">${porVirCR.map(cartaoCR).join("")}</div>`:`<p class="vazio" style="text-align:left;padding:0;color:var(--tinta-3)">Não há atividades marcadas.</p>`}</section>
+  ${passadasCR.length?`<section class="seccao espaco"><div class="barra-tabela"><div><h3>Já aconteceram</h3></div></div><div class="ativ-lista passadas">${passadasCR.map(cartaoCR).join("")}</div></section>`:""}`;
 }
 function crAtividade(a){
   const cols=colunasAtiv(a), tot={}; cols.forEach(k=>tot[k]=0);
@@ -2744,7 +2901,8 @@ function pendentes(id){
   if(t){const pp=t.admissoes.filter(a=>a.estado==="por_pagar"); if(pp.length) out.push({area:"tesouraria",sep:"admissoes",tipo:"Propostas de admissão",t:pp.length+(pp.length===1?" proposta por pagar":" propostas por pagar"),d:"Façam a transferência e enviem o comprovativo."});}
   const ins=BD.inscricoes?.[id]||{};
   (BD.atividades||[]).forEach(a=>{const i=ins[a.id];
-    if(!i && !passou(a.prazo) && diasAte(a.prazo)<=14) out.push({area:"atividades",tipo:"Atividade",t:a.nome,d:"Confirmem quem vai até "+fmt(a.prazo)+"."});
+    /* Depois da atividade acontecer ja nao ha nada a confirmar. O que estiver por pagar continua a aparecer. */
+    if(!i && !jaAconteceu(a) && !passou(a.prazo) && diasAte(a.prazo)<=14) out.push({area:"atividades",tipo:"Atividade",t:a.nome,d:"Confirmem quem vai até "+fmt(a.prazo)+"."});
     if(i){const k=contaPag(a,i); if(k.falta>0) out.push({area:"tesouraria",sep:"atividades",tipo:"Pagamento de atividade",t:a.nome+" · "+eur(k.falta),d:k.conf+k.env>0?"O valor da inscrição mudou. Falta pagar a diferença.":"Façam a transferência e enviem o comprovativo."});}
   });
   (BD.emprestimos||[]).filter(e=>e.comp===id).forEach(e=>{const falta=porEscolher(e); if(falta.length) out.push({area:"emprestimos",tipo:"Empréstimo",t:"Falta escolher "+falta.map(t=>t==="lev"?"o levantamento":"a devolução").join(" e "),d:resumoItens(e)+" · o CR deu mais do que uma hipótese."})});
@@ -2857,7 +3015,7 @@ function vistaApp(){
   return `<div class="app">
     <aside class="lateral painel">${trevos("lateral")}
       ${marca(LOGO_BRANCO)}
-      <div class="companhia"><span class="rule"></span><h2>${esc(c.nome)}</h2><p>${c.email}</p></div>
+      ${blocoConta(c.nome, c.email)}
       <nav class="menu" aria-label="Páginas">
         ${item("companhia","Companhia")}${item("patrulha","Patrulha")}${item("tesouraria","Tesouraria")}
         ${item("atividades","Atividades")}${item("emprestimos","Empréstimos")}${item("acampamentos","Acampamentos")}
@@ -2965,7 +3123,8 @@ function desenhar(){ $("#app").innerHTML = (E.comp||E.cr) ? vistaApp() : vistaEn
 document.addEventListener("click",e=>{
   const b=e.target.closest("button,[data-acao]"); if(!b) return;
   const d=b.dataset, achar=id=>BD.pessoas.find(p=>p.id===id);
-  if(b.id==="sair"){document.querySelectorAll(".toast").forEach(x=>x.remove());estadoGravacao("");sb.auth.signOut().then(()=>location.replace(location.pathname));return;E={cr:false,comp:null,erro:"",email:"",pagina:"companhia",sep:"conta",ativ:null,rascunho:null,emp:null,pedido:null};fechar();try{history.replaceState(null,"",location.pathname+location.search)}catch(_){location.hash=""}desenhar();return}
+  if(b.id==="abrirConta"){E.menuConta=!E.menuConta;desenhar();return}
+  if(b.id==="sair"||b.id==="sairMenu"){document.querySelectorAll(".toast").forEach(x=>x.remove());estadoGravacao("");E.menuConta=false;sb.auth.signOut().then(()=>location.replace(location.pathname)).catch(()=>location.replace(location.pathname));return}
   if(b.id==="adicionar"){janelaFicha(null);return}
   if(b.id==="verPendentes"){janelaPendentes();return}
   if(d.editar){janelaFicha(achar(d.editar));return}
@@ -3007,6 +3166,7 @@ document.addEventListener("click",e=>{
   if(d.obs){const [a,c]=d.obs.split("|");janelaObs(a,c);return}
   if(d.mais||d.menos){const id=d.mais||d.menos;E.pedido.qtd[id]=Math.max(0,(E.pedido.qtd[id]||0)+(d.mais?1:-1));atualizarPedido();return}
   if(b.id==="enviarPedido"){enviarPedido();return}
+  if(b&&b.id==="dirMais"){document.querySelectorAll(".dir-linha.extra").forEach(x=>x.classList.remove("extra"));b.remove();return}
   if(b&&b.id==="acampNovo"){E.acampForm="novo";desenhar();return}
   if(b&&b.id==="acampCancelar"){E.acampForm=null;desenhar();return}
   if(b&&b.id==="acampGuardar"){guardarAcamp();return}
@@ -3041,12 +3201,22 @@ document.addEventListener("click",e=>{
   if(d.removerAtiv){const t=tes();t.orcamento=t.orcamento.filter(o=>o.id!==d.removerAtiv);guardar();desenhar();toast("Atividade removida do orçamento");return}
   if(d.reenviar){janelaFaturas(tes().faturas.find(f=>f.id===d.reenviar));return}
 });
+document.addEventListener("click",e=>{
+  if(E.menuConta && !e.target.closest(".conta-bloco")){ E.menuConta=false; desenhar() }
+}, true);
 document.addEventListener("change",e=>{
   const el=e.target;
   if(el.dataset?.papelCr){const [c,f]=el.dataset.papelCr.split("|");BD.tesouraria[c].faturas.find(x=>x.id===f).papel={data:iso(HOJE)};guardar();desenhar();const d=$(".papel-lista");if(d)d.open=true;toast("Fatura marcada como recebida em papel");return}
   if(["ft-mes","ft-comp","ft-cat","ft-estado"].includes(el.id)){const k={"ft-mes":"mes","ft-comp":"comp","ft-cat":"cat","ft-estado":"estado"}[el.id];E.crFat={mes:"",comp:"",cat:"",estado:"",...(E.crFat||{}),[k]:el.value};desenhar();return}
   if(el.id==="en-comp"||el.id==="en-estado"){const k=el.id==="en-comp"?"comp":"estado";E.crEnt={comp:"",estado:"",...(E.crEnt||{}),[k]:el.value};desenhar();return}
   if(el.id==="ct-comp"||el.id==="ct-cargo"||el.id==="ct-ramo"){const k=el.id.slice(3);E.crCt={comp:"",cargo:"",ramo:"",procura:"",...(E.crCt||{}),[k]:el.value};desenhar();return}
+  if(el.dataset?.dirParcial!==undefined && el.dataset?.dirParcial!==null && el.id?.startsWith("dir-p")){
+    const i=el.dataset.dirParcial, on=el.value==="1";
+    $("#dir-d"+i).disabled=!on; $("#dir-a"+i).disabled=!on;
+    if(!on){$("#dir-d"+i).value="";$("#dir-a"+i).value=""}
+    else if(!$("#dir-d"+i).value){$("#dir-d"+i).value=$("#ac-inicio").value; $("#dir-a"+i).value=$("#ac-fim").value}
+    return}
+  if(el.id==="ac-jcom"){document.querySelectorAll(".ac-j").forEach(x=>x.classList.toggle("escondido", el.value!=="1"));return}
   if(el.id==="ac-f-comp"||el.id==="ac-f-quando"){const k=el.id==="ac-f-comp"?"comp":"quando";E.crAc={comp:"",quando:"porvir",...(E.crAc||{}),[k]:el.value};desenhar();return}
   if(el.id==="ct-procura"){filtrarContactos(el.value);return}
   if(el.id==="filtro-al"){E.crFiltroAl=el.value;desenhar();return}
