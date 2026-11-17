@@ -505,7 +505,7 @@ a.ativ-cartao{text-decoration:none;color:inherit;grid-template-columns:auto minm
 .dir-cab span{font-size:10.5px;letter-spacing:1px;text-transform:uppercase;color:var(--tinta-3)}
 .dir-linha.extra{display:none}
 .dir-linha input,.dir-linha select{font:inherit;font-size:13.5px;padding:7px 9px;border:1px solid var(--azul-20);background:#fff;color:var(--tinta)}
-.dir-linha input:disabled{background:var(--azul-05);color:var(--tinta-3)}
+.dir-linha input:disabled{background:var(--azul-10);color:var(--tinta-3)}
 .escondido{display:none!important}
 .ac-racio{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px;border-top:1px solid var(--azul-10);margin-top:10px;padding-top:10px}
 .ac-racio div{display:grid;gap:2px}
@@ -514,6 +514,10 @@ a.ativ-cartao{text-decoration:none;color:inherit;grid-template-columns:auto minm
 @media (max-width:860px){.dir-linha,.dir-cab{grid-template-columns:16px 1fr 1fr;grid-auto-rows:auto}.dir-cab{display:none}}
 .ativ-lista.passadas .ativ-cartao{opacity:.72}
 .ativ-lista.passadas .ativ-cartao:hover{opacity:1}
+tr.fora-censos{background:repeating-linear-gradient(135deg,var(--claro-10) 0 9px,var(--papel) 9px 18px)}
+tr.fora-censos td:first-child{box-shadow:inset 3px 0 0 var(--azul-claro)}
+.ramo-barra .barra-nova{opacity:.42;border-left:2px solid #fff}
+.mais-novas{font-size:11px;color:var(--azul-claro);margin-left:4px;font-weight:600}
 .ac-barras{display:flex;gap:14px;flex-wrap:wrap;border-top:1px solid var(--azul-10);margin-top:10px;padding-top:10px;font-size:13px;color:var(--tinta-2)}
 .ac-barras b{color:var(--tinta)}
 @media (max-width:760px){.ac-ramos{grid-template-columns:repeat(2,1fr)}}
@@ -598,8 +602,23 @@ const PRAZOS={fichas:"", registos:"", conta:"", quotas:""};
 const ANO=HOJE.getFullYear();
 const MESES=["Jan","Fev","Mar","Abr","Mai","Jun","Jul","Ago","Set","Out","Nov","Dez"];
 const RAMOS_CENSOS=["Avezinha","Aventura","Caravela","Moinho"];
-const QUOTA_GUIA=15, QUOTA_RAMO_ABERTO=30; /* valores de exemplo; os reais são definidos pelo CR */
-const ADMISSAO_VALOR={nova:10,reentrada:5}; /* valores de exemplo */
+/* Valores por omissao. Os reais vem da tabela config e sao postos em valoresDaConfig(). */
+let QUOTA_GUIA=35, QUOTA_RAMO_ABERTO=35;
+let ADMISSAO_NOVA=36.5, ADMISSAO_REENTRADA=35, ADMISSAO_CARTAO=1.5;
+const TIPO_ADM={nova:"Nova guia", reentrada:"Reentrada", mudanca:"Mudança de companhia"};
+function valorAdmissao(a){
+  if(!a) return 0;
+  if(a.tipo === "nova") return ADMISSAO_NOVA;
+  return ADMISSAO_REENTRADA + (a.cartao ? ADMISSAO_CARTAO : 0);
+}
+function valoresDaConfig(cfg){
+  const n = (k, omissao) => { const v = parseFloat(cfg?.[k]); return isFinite(v) && v > 0 ? v : omissao };
+  QUOTA_GUIA = n("quota_guia", 35);
+  QUOTA_RAMO_ABERTO = n("quota_ramo", 35);
+  ADMISSAO_NOVA = n("quota_nova", n("admissao", 36.5));
+  ADMISSAO_REENTRADA = n("quota_reentrada", 35);
+  ADMISSAO_CARTAO = n("quota_cartao", 1.5);
+}
 const CATEGORIAS_CE=["Alimentação","Transportes","Alojamento","Material","Atividades","Outros"]; /* a confirmar com a lista da CE */
 const eur=v=>new Intl.NumberFormat("pt-PT",{style:"currency",currency:"EUR"}).format(v||0);
 const eur0=v=>new Intl.NumberFormat("pt-PT",{style:"currency",currency:"EUR",maximumFractionDigits:0}).format(v||0);
@@ -685,12 +704,12 @@ function contasSubsidios(t){
 }
 
 /* ---------- Tesouraria: separadores ---------- */
-const SEPARADORES=[["conta","Conta"],["subsidios","Subsídios"],["faturas","Faturas"],["quotas","Quotas"],["admissoes","Admissões"],["atividades","Atividades"],["reembolsos","Reembolsos"],["orcamento","Orçamento"]];
+const SEPARADORES=[["conta","Conta"],["subsidios","Subsídios"],["faturas","Faturas"],["quotas","Quotas"],["admissoes","Admissões"],["atividades","Atividades"],["orcamento","Orçamento"]];
 function vistaTesouraria(){
   const c=comp(E.comp), pend=pendentes(E.comp).filter(p=>p.area==="tesouraria");
   const contaSep=k=>pend.filter(p=>p.sep===k).length;
   const sep=E.sep||"conta";
-  const corpo={conta:tesConta,subsidios:tesSubsidios,faturas:tesFaturas,quotas:tesQuotas,admissoes:tesAdmissoes,orcamento:tesOrcamento,atividades:tesAtividades,reembolsos:tesReembolsos}[sep]();
+  const corpo={conta:tesConta,subsidios:tesSubsidios,faturas:tesFaturas,quotas:tesQuotas,admissoes:tesAdmissoes,orcamento:tesOrcamento,atividades:tesAtividades}[sep]();
   return `<div class="topo"><div class="running" style="text-align:right">${esc(c.nome)}<span>Tesouraria</span></div></div>
   <div class="cabecalho"><div><div class="num">03</div><span class="rule"></span><h1>Tesouraria</h1><p>A conta da companhia, os subsídios, as faturas, as quotas, as admissões, os pagamentos de atividades e os reembolsos.</p></div></div>
   <div class="separadores" role="tablist">${SEPARADORES.map(([k,n])=>`<button role="tab" data-sep="${k}" aria-selected="${sep===k}">${n}${contaSep(k)?`<span class="conta">${contaSep(k)}</span>`:""}</button>`).join("")}</div>
@@ -734,6 +753,8 @@ function tesSubsidios(){
     <tbody>${linhas}</tbody></table></div>
   </section>`;
 }
+const EST_REEMB={pedido:"Reembolso pedido", aprovado:"Reembolso aprovado", pago:"Reembolso pago", recusado:"Reembolso recusado"};
+const reembolsoDaFatura=(t,idFat)=>(t.reembolsos||[]).find(r=>r.fatura===idFat);
 function tesFaturas(){
   const t=tes(), dev=t.faturas.filter(f=>f.estado==="devolvida"), semPapel=t.faturas.filter(f=>f.estado!=="devolvida"&&!f.papel);
   const meses=[...new Set(t.faturas.map(f=>f.mes))].sort().reverse();
@@ -744,7 +765,7 @@ function tesFaturas(){
     return `<tr class="mes-linha"><td colspan="6"><b>${nomeMes(m)}</b><span>${porCat.map(([c,n])=>`${c} ${n}`).join(" · ")}</span></td></tr>`+fs.map(f=>`<tr>
       <td><span class="nome">${esc(f.ficheiro)}</span><span class="sub">Enviada a ${fmt(f.data)}${f.dataFatura?` · fatura de ${fmt(f.dataFatura)}`:""}</span>${f.estado==="devolvida"?`<span class="falta">${esc(f.motivo)}</span>`:""}</td>
       <td>${esc(f.categoria)}</td>
-      <td>${f.estado==="aceite"?`<span class="estado ok">Aceite</span>`:f.estado==="analise"?`<span class="estado analise">Em análise</span>`:`<span class="estado devolvida">Devolvida</span>`}</td>
+      <td>${f.estado==="aceite"?`<span class="estado ok">Aceite</span>`:f.estado==="analise"?`<span class="estado analise">Em análise</span>`:`<span class="estado devolvida">Devolvida</span>`}${(()=>{const r=reembolsoDaFatura(t,f.id);return r?`<span class="sub">${EST_REEMB[r.estado]||"Reembolso pedido"} · ${esc(r.nome)}</span>`:""})()}</td>
       <td>${f.estado==="devolvida"?"":f.papel?`<span class="estado ok">Entregue</span><span class="sub num">${fmt(f.papel.data)}</span>`:(E.cr?`<button class="btn pequeno" data-papel="${f.id}">Marcar entregue</button>`:`<span class="estado analise">Por entregar</span>`)}</td>
       <td class="valor">${f.valor!=null?(f.estado==="aceite"?`<b>${eur(f.valor)}</b>`:`<span style="color:var(--tinta-3)">${eur(f.valor)}</span>`):""}</td>
       <td><div class="acoes">${f.caminho?`<button class="btn texto pequeno" data-abrir="${esc(f.caminho)}">Abrir</button>`:""}${f.estado==="devolvida"?`<button class="btn claro pequeno" data-reenviar="${f.id}">Reenviar</button>`:""}</div></td></tr>`).join("");
@@ -753,7 +774,7 @@ function tesFaturas(){
   ${semPapel.length?`<div class="aviso suave"><span><b>${semPapel.length} ${semPapel.length===1?"fatura ainda não foi entregue":"faturas ainda não foram entregues"} em papel.</b></span></div>`:""}
   <section class="seccao">
     <div class="enviar" data-acao="faturas" role="button" tabindex="0">
-      <b>Submeter faturas</b><span>Escolham os ficheiros, a categoria e o mês. As faturas são entregues à CE por categoria e por mês.</span>
+      <b>Submeter faturas</b><span>Escolham os ficheiros, a categoria e o mês, e escrevam o valor. Se a despesa foi paga por uma dirigente, marquem a opção de reembolso na mesma janela.</span>
       <span class="btn primario pequeno" style="margin-top:6px">Escolher ficheiros</span>
     </div>
   </section>
@@ -784,7 +805,7 @@ function tesQuotas(){
       <div class="${q.falta?"destaque":""}"><span class="n">${eur(q.falta)}</span><span class="l">Falta pagar</span></div>
     </div>
     <div class="medidor" role="img" aria-label="${Math.round(pct*100)}% das quotas pagas ou em análise"><div style="width:${pct*100}%"></div></div>
-    <p class="sub" style="font-size:12.5px;color:var(--tinta-3);margin:6px 0 0">${Math.round(pct*100)}% das quotas pagas ou à espera de confirmação do CR. Valores de exemplo: ${eur(QUOTA_GUIA)} por guia e ${eur(QUOTA_RAMO_ABERTO)} por ramo aberto.</p>
+    <p class="sub" style="font-size:12.5px;color:var(--tinta-3);margin:6px 0 0">${Math.round(pct*100)}% das quotas pagas ou à espera de confirmação do CR. ${eur(QUOTA_GUIA)} por guia e ${eur(QUOTA_RAMO_ABERTO)} por ramo aberto.</p>
   </section>
   <section class="seccao espaco">
     <div class="barra-tabela"><div><h3>Pagamentos enviados</h3></div></div>
@@ -793,13 +814,13 @@ function tesQuotas(){
   </section>`;
 }
 function tesAdmissoes(){
-  const t=tes(), porPagar=t.admissoes.filter(a=>a.estado==="por_pagar"), total=porPagar.reduce((s,a)=>s+ADMISSAO_VALOR[a.tipo],0);
+  const t=tes(), porPagar=t.admissoes.filter(a=>a.estado==="por_pagar"), total=porPagar.reduce((s,a)=>s+valorAdmissao(a),0);
   const EST={por_pagar:["devolvida","Por pagar"],enviado:["analise","Comprovativo enviado"],pago:["ok","Pago"]};
   const linhas=[...t.admissoes].sort((a,b)=>b.data.localeCompare(a.data)).map(a=>`<tr>
     <td><span class="nome">${esc(a.nome)}</span><span class="sub">Entregue a ${fmt(a.data)}</span></td>
     <td><span class="ramo"><i style="background:${RAMOS[a.ramo]}"></i>${a.ramo}</span></td>
-    <td>${a.tipo==="reentrada"?"Reentrada":"Nova entrada"}</td>
-    <td class="valor">${eur(ADMISSAO_VALOR[a.tipo])}</td>
+    <td>${TIPO_ADM[a.tipo]||"Nova guia"}${a.cartao?`<span class="sub">com cartão</span>`:""}</td>
+    <td class="valor">${eur(valorAdmissao(a))}</td>
     <td><span class="estado ${EST[a.estado][0]}">${EST[a.estado][1]}</span></td>
     <td><div class="acoes">${a.estado==="por_pagar"?`<button class="btn claro pequeno" data-pagar-pa="${a.id}">Enviar comprovativo</button>`:""}${a.caminho?botaoDoc(a,"Ver comprovativo"):""}</div></td></tr>`).join("");
   return `<section class="seccao">
@@ -807,7 +828,7 @@ function tesAdmissoes(){
       <div class="acoes"><button class="btn primario pequeno" data-acao="admissao">Registar proposta</button></div></div>
     <div class="tabela"><table style="min-width:640px"><thead><tr><th>Nome</th><th>Ramo</th><th>Tipo</th><th class="valor">Valor</th><th>Estado</th><th></th></tr></thead>
     <tbody>${linhas||`<tr><td colspan="6" class="vazio">Ainda não há propostas de admissão este ano.</td></tr>`}</tbody></table></div>
-    <p class="sub" style="font-size:12.5px;color:var(--tinta-3);margin:8px 0 0">Valores de exemplo: ${eur(ADMISSAO_VALOR.nova)} por nova entrada e ${eur(ADMISSAO_VALOR.reentrada)} por reentrada. Cada proposta é paga à parte. As guias registadas aqui aparecem logo nas confirmações das atividades.</p>
+    <p class="sub" style="font-size:12.5px;color:var(--tinta-3);margin:8px 0 0">${eur(ADMISSAO_NOVA)} por nova guia. ${eur(ADMISSAO_REENTRADA)} por reentrada ou mudança de companhia, mais ${eur(ADMISSAO_CARTAO)} se pedirem cartão. Cada proposta é paga à parte das quotas. As guias registadas aqui aparecem nos censos e nas confirmações das atividades.</p>
   </section>`;
 }
 const GRUPOS=["Companhia","Chefia","Ramo Avezinha","Ramo Aventura","Ramo Caravela","Ramo Moinho","Material","Formação","Sede","Outros"];
@@ -871,6 +892,31 @@ function recadoCR(){
   if(!r) return "";
   return `<div class="recado"><span class="rotulo">Recado do Comissariado Regional</span><p>${esc(r).replace(/\n/g,"<br>")}</p></div>`;
 }
+/* Guias admitidas depois de os censos terem sido fechados.
+   Contam para a companhia, mas nao estavam nos censos: aparecem sempre assinaladas. */
+function admitidasDepois(id){
+  const t = BD.tesouraria[id], c = BD.censos[id];
+  if(!t || !c || !c.atual) return [];
+  const corte = c.atual.validado || "";
+  return (t.admissoes || []).filter(a => !corte || (a.data || "") > corte)
+    .sort((x,y)=>(x.ramo||"").localeCompare(y.ramo||"") || (x.nome||"").localeCompare(y.nome||""));
+}
+const novasNoRamo = (id, ramo) => admitidasDepois(id).filter(a => a.ramo === ramo).length;
+function blocoAdmitidas(id){
+  const L = admitidasDepois(id);
+  if(!L.length) return "";
+  const EST = {por_pagar:["devolvida","Por pagar"], enviado:["analise","Comprovativo enviado"], pago:["ok","Pago"]};
+  return `<section class="seccao espaco"><div class="barra-tabela"><div><h3>Guias admitidas depois dos censos</h3>
+      <p>${L.length===1?"Esta guia entrou":"Estas guias entraram"} depois de os censos terem sido fechados, por isso não ${L.length===1?"está contada":"estão contadas"} nos números acima. Aparecem assinaladas até aos próximos censos.</p></div></div>
+    <div class="tabela"><table style="min-width:560px"><thead><tr><th>Nome</th><th>Ramo</th><th>Entrou em</th><th>Tipo</th><th>Proposta</th></tr></thead>
+    <tbody>${L.map(a=>`<tr class="fora-censos">
+      <td><span class="nome">${esc(a.nome)}</span></td>
+      <td><span class="ramo"><i style="background:${RAMOS[a.ramo]}"></i>${esc(a.ramo)}</span></td>
+      <td>${fmt(a.data)}</td>
+      <td>${TIPO_ADM[a.tipo]||"Nova guia"}${a.cartao?`<span class="sub">com cartão</span>`:""}</td>
+      <td><span class="estado ${(EST[a.estado]||EST.por_pagar)[0]}">${(EST[a.estado]||EST.por_pagar)[1]}</span></td></tr>`).join("")}</tbody></table></div>
+  </section>`;
+}
 function vistaCompanhia(){
   const c=comp(E.comp), s=cen();
   const cabec=`<div class="topo"><div class="running" style="text-align:right">${esc(c.nome)}<span>Companhia</span></div></div>
@@ -878,25 +924,26 @@ function vistaCompanhia(){
   const ciclo=`<section class="seccao espaco"><div class="barra-tabela"><div><h3>Calendário dos censos</h3></div></div>${cicloCensos()}</section>`;
   if(!s.atual) return cabec+`<div class="aviso suave"><span><b>Os censos ${anoGuidista(ANO)} desta companhia ainda não foram carregados pelo CR.</b> Não têm nada a fazer nesta página por agora: quando o CR carregar os censos, aparecem aqui os números da companhia e as quotas passam a ser calculadas a partir deles. Entretanto, o que vale a pena ir fazendo é completar as fichas da Patrulha e a conta bancária na Tesouraria.</span><button class="btn pequeno" data-pagina="patrulha">Ir à Patrulha</button></div>`+`<div class="graficos">${evolucao(s,null)}</div>`+ciclo;
   const at=s.atual.ramos, tot=totaisCensos(at), ant=s.historico[ANO-1]?totaisCensos(s.historico[ANO-1]):null;
+  const nDepois=admitidasDepois(E.comp).length;
   const varia=ant?tot.guias-ant.guias:null, maxG=Math.max(...RAMOS_CENSOS.map(r=>+at[r].guias),1);
   const razao=(g,d)=>(g/Math.max(1,d)).toFixed(1).replace(".",",");
   return cabec+`
   <p style="margin:-12px 0 22px;font-size:12.5px;color:var(--tinta-3)">Censos ${anoGuidista(ANO)}${s.atual.validado?`, validados a ${fmt(s.atual.validado)}`:""}.</p>
   <div class="numeros quatro">
-    <div><span class="n">${tot.total}</span><span class="l">Elementos</span></div>
-    <div><span class="n">${tot.guias}</span><span class="l">Guias${varia!=null?` · <span style="color:${varia>=0?"var(--ok)":"var(--alerta)"}">${varia>0?"+":""}${varia} face a ${anoGuidista(ANO-1)}</span>`:""}</span></div>
+    <div><span class="n">${tot.total+nDepois}</span><span class="l">Elementos${nDepois?" · com as admitidas depois dos censos":""}</span></div>
+    <div><span class="n">${tot.guias}</span><span class="l">Guias nos censos${varia!=null?` · <span style="color:${varia>=0?"var(--ok)":"var(--alerta)"}">${varia>0?"+":""}${varia} face a ${anoGuidista(ANO-1)}</span>`:""}${nDepois?` · <span style="color:var(--azul-claro)">mais ${nDepois} admitida${nDepois===1?"":"s"} depois</span>`:""}</span></div>
     <div><span class="n">${tot.dirigentes}</span><span class="l">Dirigentes</span></div>
     <div><span class="n">${s.atual.novas}</span><span class="l">Novas guias</span></div>
   </div>
   <div class="graficos">
     <div class="grafico"><h4>Por ramo</h4><p class="sub">Guias e dirigentes em cada ramo.</p>
-      <div class="ramos-lista">${RAMOS_CENSOS.map(r=>{const g=+at[r].guias,d=+at[r].dirigentes;return `<div class="ramo-linha">
-        <div class="ramo-nome"><span class="ramo"><i style="background:${RAMOS[r]}"></i>${r}</span><span>${d} ${d===1?"dirigente":"dirigentes"} · ${razao(g,d)} ${r==="Avezinha"?"avezinhas":"guias"} por dirigente</span></div>
-        <div class="ramo-barra"><div style="width:${g/maxG*100}%;background:${RAMOS[r]}" title="${r}: ${g}"></div><b>${g}</b></div></div>`}).join("")}</div>
-      <p class="sub" style="margin:14px 0 0">No total, ${razao(tot.guias,tot.dirigentes)} guias por dirigente.</p>
+      <div class="ramos-lista">${RAMOS_CENSOS.map(r=>{const g=+at[r].guias,d=+at[r].dirigentes,nv=novasNoRamo(E.comp,r);return `<div class="ramo-linha">
+        <div class="ramo-nome"><span class="ramo"><i style="background:${RAMOS[r]}"></i>${r}</span><span>${d} ${d===1?"dirigente":"dirigentes"} · ${razao(g+nv,d)} ${r==="Avezinha"?"avezinhas":"guias"} por dirigente</span></div>
+        <div class="ramo-barra"><div style="width:${g/maxG*100}%;background:${RAMOS[r]}" title="${r}: ${g}"></div>${nv?`<div class="barra-nova" style="width:${nv/maxG*100}%;background:${RAMOS[r]}" title="${nv} admitida(s) depois dos censos"></div>`:""}<b>${g}${nv?`<span class="mais-novas">+${nv}</span>`:""}</b></div></div>`}).join("")}</div>
+      <p class="sub" style="margin:14px 0 0">No total, ${razao(tot.guias+nDepois,tot.dirigentes)} guias por dirigente${nDepois?", já a contar com as admitidas depois dos censos":""}.</p>
     </div>
     ${evolucao(s,at)}
-  </div>${ciclo}`;
+  </div>${blocoAdmitidas(E.comp)}${ciclo}`;
 }
 function evolucao(s,atual){
   const dados=Object.keys(s.historico).map(Number).sort().map(a=>({ano:a,r:s.historico[a]}));
@@ -943,6 +990,7 @@ function janelaConta(){
   };
 }
 function janelaFaturas(reenviar){
+  const reAnt = reenviar ? reembolsoDaFatura(tes(), reenviar.id) : null;
   const mesAtual=iso(HOJE).slice(0,7);
   const meses=[];for(let i=0;i<12;i++){const d=new Date(HOJE.getFullYear(),HOJE.getMonth()-i,1);meses.push(d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0"))}
   const nomeMes=m=>{const [y,mm]=m.split("-");return ["Janeiro","Fevereiro","Março","Abril","Maio","Junho","Julho","Agosto","Setembro","Outubro","Novembro","Dezembro"][+mm-1]+" "+y};
@@ -953,6 +1001,15 @@ function janelaFaturas(reenviar){
         <label for="t-cat">Categoria<select id="t-cat"><option value="">Escolher</option>${CATEGORIAS_CE.map(c=>`<option ${reenviar?.categoria===c?"selected":""}>${c}</option>`).join("")}</select></label>
         <label for="t-mes">Mês da despesa<select id="t-mes">${meses.map(m=>`<option value="${m}" ${(reenviar?.mes||mesAtual)===m?"selected":""}>${nomeMes(m)}</option>`).join("")}</select></label>
       </form>
+      <div class="caixa" style="display:grid;gap:10px">
+        <label class="escolha" for="t-reemb"><input type="checkbox" id="t-reemb" ${reAnt?"checked":""}><span><b>Queremos ser reembolsadas desta despesa.</b> Marquem se foi uma dirigente que pagou do seu bolso.</span></label>
+        <div id="t-reemb-dados" class="form" style="margin:0" ${reAnt?"":"hidden"}>
+          <label class="inteiro" for="t-rnome">Quem pagou<input id="t-rnome" list="t-rnomes" value="${esc(reAnt?.nome||"")}" placeholder="Nome completo">
+            <datalist id="t-rnomes">${pessoas().map(x=>`<option value="${esc(x.nome)}"></option>`).join("")}</datalist></label>
+          <label class="inteiro" for="t-riban-sel">IBAN para o reembolso<select id="t-riban-sel">${ibansConhecidos().map(x=>`<option value="${x.iban}" ${reAnt?.iban===x.iban?"selected":""}>${esc(x.rotulo)} · ${ibanFormatado(x.iban)}</option>`).join("")}<option value="__outro">Outro IBAN</option></select>
+            <input id="t-riban" placeholder="PT50 0000 0000 0000 0000 0000 0" autocomplete="off" ${ibansConhecidos().length?"hidden":""}></label>
+        </div>
+      </div>
       <div class="ficheiro"><b style="color:var(--azul);font-weight:600">${reenviar?"Nova versão da fatura":"Faturas"}</b><span>PDF ou fotografia legível, com o NIF da Associação. Se tiverem faturas de categorias ou meses diferentes, enviem-nas em separado.</span><input type="file" id="t-fich" accept=".pdf,image/*" ${reenviar?"":"multiple"}></div>
       <div id="lidas"></div>
     </div>
@@ -967,31 +1024,20 @@ function janelaFaturas(reenviar){
   const pintar=()=>{
     const alvo=$("#lidas"); if(!alvo) return;
     alvo.innerHTML = linhas.length ? `<span class="rotulo" style="color:var(--azul)">Valor de cada fatura</span>
-      <p class="sub" style="margin:4px 0 10px;color:var(--tinta-3)">O valor é lido da imagem aqui no vosso computador. Confirmem sempre antes de submeter: em fotografias tortas ou faturas com vários totais, engana-se.</p>`
+      <p class="sub" style="margin:4px 0 10px;color:var(--tinta-3)">Escrevam o valor total e a data de cada fatura, tal como estão no documento.</p>`
       + linhas.map((l,i)=>`<div class="fatura-lida">
-          <div class="fl-nome"><b>${esc(l.file.name)}</b><span class="sub" data-festado="${i}">${esc(l.estado)}</span></div>
+          <div class="fl-nome"><b>${esc(l.file.name)}</b></div>
           <label for="fv${i}">Valor (€)<input type="number" id="fv${i}" data-fval="${i}" min="0" step="0.01" value="${l.valor!=null?l.valor:""}"></label>
           <label for="fd${i}">Data da fatura<input type="date" id="fd${i}" data-fdata="${i}" value="${l.data||""}"></label>
         </div>`).join("") : "";
   };
-  const estado=(l,txt)=>{ l.estado=txt; const el=document.querySelector(`[data-festado="${linhas.indexOf(l)}"]`); if(el) el.textContent=txt; };
 
+  $("#t-reemb").addEventListener("change", e=>{ $("#t-reemb-dados").hidden = !e.target.checked; if(e.target.checked) $("#t-rnome").focus() });
+  $("#t-riban-sel").addEventListener("change", e=>{ $("#t-riban").hidden = e.target.value!=="__outro"; if(!$("#t-riban").hidden) $("#t-riban").focus() });
   $("#t-fich").addEventListener("change", async ()=>{
     linhas.length=0;
-    [...$("#t-fich").files].slice(0,8).forEach(f=>linhas.push({file:f, valor:null, data:"", estado:"à espera de ser lida"}));
+    [...$("#t-fich").files].slice(0,8).forEach(f=>linhas.push({file:f, valor:null, data:""}));
     pintar();
-    for(const l of linhas){
-      if(/pdf/i.test(l.file.type) || /\.pdf$/i.test(l.file.name)){ estado(l,"PDF: escrevam o valor à mão"); continue }
-      estado(l,"a ler a imagem…");
-      try{
-        const r = await lerFatura(l.file, pct => estado(l,"a ler a imagem… "+pct+"%"));
-        lerInputs();
-        if(r.valor){ l.valor=r.valor; }
-        if(r.data && !l.data){ l.data=r.data; }
-        l.estado = r.valor ? ("li "+eur(r.valor)+(r.data?" de "+fmt(r.data):"")+" — confirmem") : "não consegui ler o valor, escrevam à mão";
-      }catch(e){ l.estado="não consegui ler ("+e.message+")" }
-      pintar();
-    }
   });
 
   $("#enviarFaturas").onclick=async ()=>{
@@ -999,17 +1045,33 @@ function janelaFaturas(reenviar){
     if(!cat){toast("Escolham a categoria das faturas");return}
     if(!linhas.length){toast("Escolham pelo menos uma fatura");return}
     lerInputs();
-    if(linhas.some(l=>!(l.valor>0))){toast("Confirmem o valor de cada fatura");return}
+    if(linhas.some(l=>!(l.valor>0))){toast("Escrevam o valor de cada fatura");return}
+    const querReemb=$("#t-reemb").checked;
+    let rNome="", rIban="";
+    if(querReemb){
+      rNome=$("#t-rnome").value.trim();
+      const sel=$("#t-riban-sel").value;
+      rIban=ibanLimpo(sel==="__outro"?$("#t-riban").value:sel);
+      if(!rNome){toast("Digam quem pagou, para sabermos a quem devolver o dinheiro");return}
+      if(!ibanValido(rIban)){toast("O IBAN do reembolso não é válido. Confirmem os 25 caracteres, a começar por PT50.");return}
+    }
     const b=$("#enviarFaturas"); b.disabled=true; b.textContent="A enviar…";
     try{
       const t=tes(), hoje=iso(HOJE);
       for(const l of linhas){
         const caminho=await arquivar(l.file,"faturas");
+        const idFat = reenviar ? reenviar.id : "f"+Date.now()+Math.random().toString(36).slice(2,5);
         if(reenviar) Object.assign(t.faturas.find(x=>x.id===reenviar.id),{ficheiro:l.file.name,caminho,data:hoje,dataFatura:l.data||"",categoria:cat,mes,estado:"analise",motivo:"",valor:l.valor,papel:null});
-        else t.faturas.push({id:"f"+Date.now()+Math.random().toString(36).slice(2,5),ficheiro:l.file.name,caminho,data:hoje,dataFatura:l.data||"",mes,categoria:cat,estado:"analise",valor:l.valor,papel:null,motivo:""});
+        else t.faturas.push({id:idFat,ficheiro:l.file.name,caminho,data:hoje,dataFatura:l.data||"",mes,categoria:cat,estado:"analise",valor:l.valor,papel:null,motivo:""});
+        /* O pedido de reembolso vive onde sempre viveu; so passa a nascer ligado a fatura. */
+        t.reembolsos = t.reembolsos.filter(r => r.fatura !== idFat);
+        if(querReemb) t.reembolsos.push({id:"r"+Date.now()+Math.random().toString(36).slice(2,5), fatura:idFat, nome:rNome, iban:rIban,
+          valor:l.valor, motivo:cat+" · "+l.file.name, atividade:null, data:hoje,
+          ficheiros:[{ficheiro:l.file.name, caminho}], estado:"pedido"});
       }
       const total=linhas.reduce((a,l)=>a+l.valor,0);
-      registar("Faturas",reenviar?`Reenviou a fatura ${linhas[0].file.name} (${cat}, ${nomeMesLongo(mes)}, ${eur(linhas[0].valor)})`:`Enviou ${linhas.length} ${linhas.length===1?"fatura":"faturas"} (${cat}, ${nomeMesLongo(mes)}, ${eur(total)})`);
+      const notaR = querReemb ? ` · pede reembolso de ${eur(total)} para ${rNome}` : "";
+      registar("Faturas",(reenviar?`Reenviou a fatura ${linhas[0].file.name} (${cat}, ${nomeMesLongo(mes)}, ${eur(linhas[0].valor)})`:`Enviou ${linhas.length} ${linhas.length===1?"fatura":"faturas"} (${cat}, ${nomeMesLongo(mes)}, ${eur(total)})`)+notaR);
       guardar();fechar();desenhar();toast(reenviar?"Fatura reenviada ao CR":(linhas.length===1?"Fatura enviada ao CR":linhas.length+" faturas enviadas ao CR"));
     }catch(e){ b.disabled=false; b.textContent="Submeter"; toast(e.message) }
   };
@@ -1019,17 +1081,29 @@ function janelaAdmissao(){
     <div class="corpo"><form class="form" novalidate>
       <label class="inteiro" for="a-nome">Nome da guia<input id="a-nome" placeholder="Nome completo"></label>
       <label for="a-ramo">Ramo<select id="a-ramo"><option value="">Escolher</option>${RAMOS_CENSOS.map(r=>`<option>${r}</option>`).join("")}</select></label>
-      <label for="a-tipo">Tipo<select id="a-tipo"><option value="nova">Nova entrada · ${eur(ADMISSAO_VALOR.nova)}</option><option value="reentrada">Reentrada · ${eur(ADMISSAO_VALOR.reentrada)}</option></select></label>
+      <label for="a-tipo">Tipo<select id="a-tipo"><option value="nova">Nova guia · ${eur(ADMISSAO_NOVA)}</option><option value="reentrada">Reentrada · ${eur(ADMISSAO_REENTRADA)}</option><option value="mudanca">Mudança de companhia · ${eur(ADMISSAO_REENTRADA)}</option></select></label>
+      <label class="inteiro escolha" id="a-cartao-linha" hidden><input type="checkbox" id="a-cartao"><span>Querem pedir cartão de guia (mais ${eur(ADMISSAO_CARTAO)})</span></label>
+      <div class="conf-total inteiro" style="margin:0"><span>A pagar</span><b id="a-total">${eur(ADMISSAO_NOVA)}</b></div>
     </form></div>
     <div class="rodape"><button class="btn" data-fechar>Cancelar</button><button class="btn primario" id="guardarPA">Registar</button></div>`,"simples");
-  $("#guardarPA").onclick=()=>{const a={nome:$("#a-nome").value.trim(),ramo:$("#a-ramo").value,tipo:$("#a-tipo").value};
+  const refrescarPA=()=>{
+    const nova=$("#a-tipo").value==="nova";
+    $("#a-cartao-linha").hidden=nova;
+    if(nova) $("#a-cartao").checked=false;
+    $("#a-total").textContent=eur(valorAdmissao({tipo:$("#a-tipo").value, cartao:$("#a-cartao").checked}));
+  };
+  $("#a-tipo").addEventListener("change",refrescarPA);
+  $("#a-cartao").addEventListener("change",refrescarPA);
+  $("#guardarPA").onclick=()=>{const a={nome:$("#a-nome").value.trim(),ramo:$("#a-ramo").value,tipo:$("#a-tipo").value,cartao:$("#a-tipo").value!=="nova"&&$("#a-cartao").checked};
     if(!a.nome||!a.ramo){toast("Indiquem o nome e o ramo");return}
-    tes().admissoes.push({id:"pa"+Date.now(),...a,data:iso(HOJE),estado:"por_pagar"});registar("Admissões",`Registou a proposta de admissão de ${a.nome} (Ramo ${a.ramo}, ${a.tipo==="reentrada"?"reentrada":"nova entrada"})`);guardar();fechar();desenhar();toast("Proposta de admissão registada")};
+    tes().admissoes.push({id:"pa"+Date.now(),...a,data:iso(HOJE),estado:"por_pagar"});
+    registar("Admissões",`Registou a proposta de admissão de ${a.nome} (Ramo ${a.ramo}, ${(TIPO_ADM[a.tipo]||"Nova guia").toLowerCase()}${a.cartao?", com cartão":""}, ${eur(valorAdmissao(a))})`);
+    guardar();fechar();desenhar();toast("Proposta de admissão registada")};
 }
 function janelaPagarAdmissao(pa){
   janela(cabecJanela("Tesouraria","Pagamento da proposta de admissão")+`
     <div class="corpo" style="display:grid;gap:16px">
-      <div class="conf-total" style="margin:0"><span>${esc(pa.nome)} · ${pa.tipo==="reentrada"?"Reentrada":"Nova entrada"}</span><b>${eur(ADMISSAO_VALOR[pa.tipo])}</b></div>
+      <div class="conf-total" style="margin:0"><span>${esc(pa.nome)} · ${TIPO_ADM[pa.tipo]||"Nova guia"}${pa.cartao?" com cartão":""}</span><b>${eur(valorAdmissao(pa))}</b></div>
       <div class="caixa">Transferência para a conta do CR: <b class="num">${CR_IBAN}</b>. Indiquem o nome da companhia no descritivo.</div>
       <div class="ficheiro"><b style="color:var(--azul);font-weight:600">Comprovativo da transferência</b><span>PDF ou fotografia</span><input type="file" id="pa-fich" accept=".pdf,image/*"></div>
     </div>
@@ -1076,35 +1150,6 @@ function ibansConhecidos(){
   const t=tes(), L=[]; if(t.iban) L.push({iban:t.iban,rotulo:"Conta da companhia"});
   t.reembolsos.forEach(r=>{if(r.iban&&!L.some(x=>x.iban===r.iban)) L.push({iban:r.iban,rotulo:r.nome})});
   return L;
-}
-function janelaReembolso(atividade){
-  janela(cabecJanela("Tesouraria","Pedir reembolso")+`
-    <div class="corpo"><form class="form" novalidate>
-      <label class="inteiro" for="r-nome">Quem pagou<input id="r-nome" placeholder="Nome completo"></label>
-      <label class="inteiro" for="r-iban-sel">IBAN para o reembolso<select id="r-iban-sel">${ibansConhecidos().map(x=>`<option value="${x.iban}">${esc(x.rotulo)} · ${ibanFormatado(x.iban)}</option>`).join("")}<option value="__outro">Outro IBAN</option></select>
-        <input id="r-iban" placeholder="PT50 0000 0000 0000 0000 0000 0" autocomplete="off" ${ibansConhecidos().length?"hidden":""}></label>
-      <label for="r-valor">Valor (€)<input type="number" id="r-valor" min="0" step="0.01"></label>
-      <label for="r-data">Data da despesa<input type="date" id="r-data" max="${iso(HOJE)}"></label>
-      <label class="inteiro" for="r-ativ">Atividade<select id="r-ativ"><option value="">Nenhuma (despesa da companhia)</option>${ativs().map(a=>`<option value="${a.id}" ${a.id===atividade?"selected":""}>${esc(a.nome)}</option>`).join("")}</select></label>
-      <label class="inteiro" for="r-motivo">Para que foi<input id="r-motivo" placeholder="Ex.: combustível da viagem"></label>
-      <label class="inteiro" for="r-fich">Faturas ou talões<input type="file" id="r-fich" accept=".pdf,image/*" multiple></label>
-    </form></div>
-    <div class="rodape"><button class="btn" data-fechar>Cancelar</button><button class="btn primario" id="enviarReembolso">Enviar pedido</button></div>`,"simples");
-  $("#r-iban-sel").addEventListener("change",e=>{$("#r-iban").hidden=e.target.value!=="__outro";if(!$("#r-iban").hidden)$("#r-iban").focus()});
-  $("#enviarReembolso").onclick=()=>{
-    const sIban=$("#r-iban-sel").value;
-    const r={nome:$("#r-nome").value.trim(),iban:ibanLimpo(sIban==="__outro"?$("#r-iban").value:sIban),valor:parseFloat($("#r-valor").value),motivo:$("#r-motivo").value.trim(),atividade:$("#r-ativ").value||null};
-    const fs=[...$("#r-fich").files];
-    if(!r.nome||!r.motivo||!(r.valor>0)){toast("Preenche quem pagou, o valor e para que foi");return}
-    if(!ibanValido(r.iban)){toast("O IBAN não é válido. Confirma os 25 caracteres, a começar por PT50.");return}
-    if(!fs.length){toast("Anexa pelo menos uma fatura ou talão");return}
-    comEnvio("#enviarReembolso", async ()=>{
-      const docs=[];
-      for(const f of fs) docs.push({ficheiro:f.name, caminho: await arquivar(f,"reembolsos")});
-      tes().reembolsos.push({id:"r"+Date.now(),...r,data:iso(HOJE),ficheiros:docs,estado:"pedido"});
-      registar("Reembolsos",`Pediu reembolso de ${eur(r.valor)} para ${r.nome} (${r.motivo})`);
-    }, "Pedido de reembolso enviado");
-  };
 }
 
 /* ================= ATIVIDADES ================= */
@@ -1221,7 +1266,6 @@ function vistaAtividade(a){
       <div class="amigas">${sel.amigas.map((n,k)=>`<span class="amiga">${esc(n.nome)} · ${esc(n.idade)} anos${fechado?"":`<button type="button" data-rem-amiga="${k}" aria-label="Retirar ${esc(n.nome)}">×</button>`}</span>`).join("")}
       ${fechado?"":`<div class="amiga-nova"><input id="amiga-nome" placeholder="Nome completo da amiga" aria-label="Nome da amiga"><input id="amiga-idade" type="number" min="3" max="99" placeholder="Idade" aria-label="Idade da amiga" style="flex:0 0 90px"><button type="button" class="btn pequeno" data-add-amiga>Acrescentar</button></div>`}</div></div>`]:[])].join("");
   const v=(sel.guias.size+sel.amigas.length)*a.custoGuia+sel.dirigentes.size*a.custoDirigente;
-  const reemb=tes().reembolsos.filter(r=>r.atividade===a.id);
   const kp=contaPag(a,i), pag=i&&(kp.custo||kp.conf||kp.env)?kp:null;
   return `${migalhas([["Atividades",R("atividades")],[a.nome]])}
   <div class="cabecalho"><div><span class="rotulo" style="color:var(--azul-claro)">${publicoTexto(a)}</span><span class="rule" style="margin-top:10px"></span><h1>${esc(a.nome)}</h1><p>${esc(a.descricao)}</p></div></div>
@@ -1248,9 +1292,7 @@ function vistaAtividade(a){
   ${pag?`<section class="seccao espaco" id="sec-pagamento" ${inscAlterada(a)?"hidden":""}><div class="barra-tabela"><div><h3>Pagamento</h3><p>${i.guias.length+(i.amigas?.length||0)} guias${i.amigas?.length?` (${i.amigas.length} amigas)`:""} × ${eur(a.custoGuia)}${a.custoDirigente?` + ${i.dirigentes.length} dirigentes × ${eur(a.custoDirigente)}`:""} = ${eur(pag.custo)}. Também aparece na Tesouraria.</p></div>${pag.falta>0?`<button class="btn primario pequeno" data-pagar-ativ="${a.id}">Enviar comprovativo · ${eur(pag.falta)}</button>`:""}</div>
     <div class="pag-linha">${pagamentoTexto(a,i)}${pag.falta>0?`<span class="sub">${pag.conf+pag.env>0?`Já pagaram ${eur(pag.conf+pag.env)}. `:""}Façam a transferência de ${eur(pag.falta)} para a conta do CR (${CR_IBAN}) e enviem o comprovativo.</span>`:""}</div>
     ${pag.ps.length?`<ul class="pag-historico">${pag.ps.map(p=>`<li><span>${fmt(p.data)} · ${esc(p.ficheiro)} ${botaoDoc(p)}</span><b>${eur(p.valor)}</b><span class="estado ${p.estado==="confirmado"?"ok":"analise"}">${p.estado==="confirmado"?"Confirmado":"Em análise"}</span></li>`).join("")}</ul>`:""}</section>`:""}
-  <section class="seccao espaco"><div class="barra-tabela"><div><h3>Reembolsos desta atividade</h3><p>Para despesas da atividade pagas por uma dirigente. O pedido também aparece na Tesouraria.</p></div><button class="btn pequeno" data-reembolso-ativ="${a.id}">Pedir reembolso</button></div>
-    ${reemb.length?`<div class="tabela"><table style="min-width:520px"><thead><tr><th>Quem pagou</th><th class="valor">Valor</th><th>Estado</th></tr></thead><tbody>${reemb.map(r=>`<tr><td><span class="nome">${esc(r.nome)}</span><span class="sub">${esc(r.motivo)}</span></td><td class="valor">${eur(r.valor)}</td><td>${estadoReembolso(r)}</td></tr>`).join("")}</tbody></table></div>`:`<p class="sub" style="margin:0;color:var(--tinta-3)">Ainda não há pedidos de reembolso para esta atividade.</p>`}
-  </section>`;
+  `;
 }
 function inscAlterada(a){
   const i=insc(a.id), s=E.rascunho; if(!i||!s) return false;
@@ -1678,7 +1720,7 @@ function pedidosCR(){
     const t=BD.tesouraria[c.id], ins=BD.inscricoes[c.id]||{};
     t.faturas.filter(f=>f.estado==="analise").forEach(f=>L.push({tipo:"Faturas",comp:c.id,data:f.data,titulo:f.ficheiro,det:f.categoria+" · "+nomeMesLongo(f.mes)+(f.valor!=null?" · a companhia indicou "+eur(f.valor):""),acoes:[["aceitarFatura","Aceitar",f.id,"primario"],["devolverFatura","Devolver",f.id],...(f.caminho?[["abrirDoc","Ver fatura",f.caminho]]:[])]}));
     t.quotas.filter(q=>q.estado==="analise").forEach(q=>L.push({tipo:"Quotas",comp:c.id,data:q.data,titulo:"Comprovativo de quotas · "+eur(q.valor),det:q.ficheiro,acoes:[["confirmarQuota","Confirmar pagamento",q.id,"primario"],...(q.caminho?[["abrirDoc","Ver comprovativo",q.caminho]]:[])]}));
-    t.admissoes.filter(a=>a.estado==="enviado").forEach(a=>L.push({tipo:"Admissões",comp:c.id,data:a.data,titulo:a.nome+" · "+eur(ADMISSAO_VALOR[a.tipo]),det:(a.tipo==="reentrada"?"Reentrada":"Nova entrada")+" · Ramo "+a.ramo+(a.ficheiro?" · "+a.ficheiro:""),acoes:[["confirmarPA","Confirmar pagamento",a.id,"primario"],...(a.caminho?[["abrirDoc","Ver comprovativo",a.caminho]]:[])]}));
+    t.admissoes.filter(a=>a.estado==="enviado").forEach(a=>L.push({tipo:"Admissões",comp:c.id,data:a.data,titulo:a.nome+" · "+eur(valorAdmissao(a)),det:(TIPO_ADM[a.tipo]||"Nova guia")+(a.cartao?" com cartão":"")+" · Ramo "+a.ramo+(a.ficheiro?" · "+a.ficheiro:""),acoes:[["confirmarPA","Confirmar pagamento",a.id,"primario"],...(a.caminho?[["abrirDoc","Ver comprovativo",a.caminho]]:[])]}));
     BD.atividades.forEach(a=>{const i=ins[a.id]; (i?.pagamentos||[]).filter(p=>p.estado==="enviado").forEach(p=>L.push({tipo:"Atividades",comp:c.id,data:p.data,titulo:a.nome+" · "+eur(p.valor),det:"Pagamento da inscrição · "+p.ficheiro+" · total da inscrição "+eur(custoInsc(a,i)),acoes:[["confirmarAtiv","Confirmar pagamento",a.id+"|"+p.id,"primario"],...(p.caminho?[["abrirDoc","Ver comprovativo",p.caminho]]:[])]}))});
     t.reembolsos.filter(r=>r.estado==="pedido"||r.estado==="aprovado").forEach(r=>L.push({tipo:"Reembolsos",comp:c.id,data:r.data,titulo:r.nome+" · "+eur(r.valor),det:r.motivo+(r.atividade?" · "+(BD.atividades.find(a=>a.id===r.atividade)?.nome||""):"")+" · IBAN "+ibanFormatado(r.iban),
       acoes:(r.estado==="pedido"?[["aprovarReemb","Aprovar",r.id,"primario"],["recusarReemb","Recusar",r.id]]:[["pagoReemb","Marcar como pago",r.id,"primario"]]).concat((r.ficheiros||[]).filter(x=>camDoc(x)).map((x,n)=>["abrirDoc",(r.ficheiros.length>1?"Ver talão "+(n+1):"Ver talão"),camDoc(x)])),estado:r.estado==="aprovado"?"Aprovado":""}));
@@ -1911,7 +1953,7 @@ function todasFaturas(){
 function faltaDe(id){
   const t=tesDe(id), q=contasQuotas(id);
   const adm=(t.admissoes||[]).filter(a=>a.estado!=="pago");
-  const admValor=adm.reduce((s,a)=>s+(ADMISSAO_VALOR[a.tipo]||0),0);
+  const admValor=adm.reduce((s,a)=>s+valorAdmissao(a),0);
   let ativ=0;
   (BD.atividades||[]).forEach(a=>{const i=BD.inscricoes[id]?.[a.id]; if(i) ativ+=contaPag(a,i).falta});
   const quotas=q.devido==null?null:q;
@@ -1923,7 +1965,7 @@ function entradasCR(){
     const t=tesDe(c.id);
     (t.quotas||[]).forEach(q=>L.push({data:q.data,c,tipo:"Quotas",desc:q.ficheiro||"Comprovativo",valor:+q.valor||0,
       confirmado:q.estado==="confirmado",caminho:q.caminho,acao:q.estado==="confirmado"?null:["confirmarQuota",q.id]}));
-    (t.admissoes||[]).filter(a=>a.estado!=="por_pagar").forEach(a=>L.push({data:a.data,c,tipo:"Admissão",desc:a.nome,valor:ADMISSAO_VALOR[a.tipo]||0,
+    (t.admissoes||[]).filter(a=>a.estado!=="por_pagar").forEach(a=>L.push({data:a.data,c,tipo:"Admissão",desc:a.nome,valor:valorAdmissao(a),
       confirmado:a.estado==="pago",caminho:a.caminho,acao:a.estado==="pago"?null:["confirmarPA",a.id]}));
     (BD.atividades||[]).forEach(a=>{const i=BD.inscricoes[c.id]?.[a.id];
       (i?.pagamentos||[]).forEach(pg=>L.push({data:pg.data,c,tipo:"Atividade",desc:a.nome,valor:+pg.valor||0,
@@ -2020,10 +2062,10 @@ function temasTesouraria(){
       if(q.falta>0) quotas.comps.push({c, valor:q.falta, nota:q.analise?eur(q.analise)+" por confirmar":""});
     }
     const pas=(t.admissoes||[]);
-    const esperado=pas.reduce((s,a)=>s+(ADMISSAO_VALOR[a.tipo]||0),0);
-    const pago=pas.filter(a=>a.estado==="pago").reduce((s,a)=>s+(ADMISSAO_VALOR[a.tipo]||0),0);
-    const enviado=pas.filter(a=>a.estado==="enviado").reduce((s,a)=>s+(ADMISSAO_VALOR[a.tipo]||0),0);
-    const emFalta=pas.filter(a=>a.estado==="por_pagar").reduce((s,a)=>s+(ADMISSAO_VALOR[a.tipo]||0),0);
+    const esperado=pas.reduce((s,a)=>s+valorAdmissao(a),0);
+    const pago=pas.filter(a=>a.estado==="pago").reduce((s,a)=>s+valorAdmissao(a),0);
+    const enviado=pas.filter(a=>a.estado==="enviado").reduce((s,a)=>s+valorAdmissao(a),0);
+    const emFalta=pas.filter(a=>a.estado==="por_pagar").reduce((s,a)=>s+valorAdmissao(a),0);
     adm.esperado+=esperado; adm.conf+=pago; adm.env+=enviado; adm.falta+=emFalta;
     if(emFalta>0) adm.comps.push({c, valor:emFalta, nota:pas.filter(a=>a.estado==="por_pagar").map(a=>a.nome).join(", ")});
   });
@@ -2619,38 +2661,6 @@ async function comEnvio(id, trabalho, mensagem){
   try{ await trabalho(); guardar(); fechar(); desenhar(); toast(mensagem) }
   catch(e){ b.disabled = false; b.textContent = txt; toast(e.message) }
 }
-function interpretarFatura(texto){
-  const t = String(texto||"").replace(/\u00a0/g, " ");
-  const achaValores = tx => [...tx.matchAll(/(\d{1,3}(?:[ .]\d{3})*|\d+)\s*[,.]\s*(\d{2})(?!\d)/g)]
-    .map(m => ({valor: parseFloat(m[1].replace(/[ .]/g,"") + "." + m[2]), fim: m.index + m[0].length}))
-    .filter(x => x.valor > 0 && x.valor < 100000);
-  const todos = achaValores(t);
-  let valor = null;
-  /* primeiro, um valor logo a seguir a "total a pagar", "total" ou "valor" */
-  const chaves = [...t.matchAll(/total\s*a\s*pagar|total\s*geral|valor\s*total|total|valor\s*a\s*pagar/gi)];
-  for(const c of chaves.reverse()){
-    const seguir = t.slice(c.index, c.index + 60);
-    const v = achaValores(seguir)[0];
-    if(v){ valor = v.valor; break }
-  }
-  /* se não houver palavra-chave, fica o maior valor da fatura */
-  if(valor == null && todos.length) valor = Math.max(...todos.map(x => x.valor));
-  let data = "";
-  const d1 = t.match(/(\d{1,2})\s*[\/\-.]\s*(\d{1,2})\s*[\/\-.]\s*(\d{4})/);
-  const d2 = t.match(/(\d{4})\s*[\/\-.]\s*(\d{1,2})\s*[\/\-.]\s*(\d{1,2})/);
-  const dois = n => String(n).padStart(2,"0");
-  if(d1 && +d1[2] >= 1 && +d1[2] <= 12) data = d1[3] + "-" + dois(d1[2]) + "-" + dois(d1[1]);
-  else if(d2 && +d2[2] >= 1 && +d2[2] <= 12) data = d2[1] + "-" + dois(d2[2]) + "-" + dois(d2[3]);
-  if(data && (data > iso(HOJE) || data < (ANO-2) + "-01-01")) data = "";
-  return {valor, data};
-}
-async function lerFatura(ficheiro, aoProgresso){
-  await carregarGuiao("https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tesseract.min.js");
-  const r = await Tesseract.recognize(ficheiro, "por", {
-    logger: m => { if(m.status === "recognizing text" && aoProgresso) aoProgresso(Math.round((m.progress||0)*100)) }
-  });
-  return interpretarFatura(r.data.text);
-}
 async function exportarFaturas(){
   const L = [];
   COMPANHIAS.forEach(c => (BD.tesouraria[c.id]?.faturas || []).forEach(f => L.push({
@@ -2728,6 +2738,7 @@ async function carregar(nomes){
   const rCf = await sb.from("config").select("chave, valor");
   BD.config = {};
   if(!rCf.error) (rCf.data || []).forEach(l => { BD.config[l.chave] = l.valor || "" });
+  valoresDaConfig(BD.config);
   configGuardada = JSON.stringify(BD.config);
   if(BD.config.iban_cr) CR_IBAN = ibanFormatado(BD.config.iban_cr);
   const rCR = await sb.from("pessoas_cr").select("*");
@@ -3192,9 +3203,8 @@ document.addEventListener("click",e=>{
   if(d.addAmiga!==undefined){const n=$("#amiga-nome").value.trim(), idade=parseInt($("#amiga-idade").value);if(!n){$("#amiga-nome").focus();toast("Escrevam o nome da amiga");return}if(!(idade>0)){$("#amiga-idade").focus();toast("Indiquem a idade da amiga");return}E.rascunho.obs=$("#r-obs")?.value??E.rascunho.obs;E.rascunho.amigas.push({nome:n,idade});desenhar();$("#amiga-nome")?.focus();return}
   if(d.remAmiga!==undefined){E.rascunho.obs=$("#r-obs")?.value??E.rascunho.obs;E.rascunho.amigas.splice(+d.remAmiga,1);desenhar();return}
   if(d.pagarAtiv){janelaPagamentoAtiv(ativs().find(a=>a.id===d.pagarAtiv));return}
-  if(d.reembolsoAtiv){janelaReembolso(d.reembolsoAtiv);return}
   if(d.fechar!==undefined){fechar();return}
-  if(d.acao){({conta:janelaConta,faturas:()=>janelaFaturas(null),quota:janelaQuota,reembolso:()=>janelaReembolso(null),admissao:janelaAdmissao,orcamentoFicheiro:janelaOrcamentoFicheiro})[d.acao]();return}
+  if(d.acao){({conta:janelaConta,faturas:()=>janelaFaturas(null),quota:janelaQuota,admissao:janelaAdmissao,orcamentoFicheiro:janelaOrcamentoFicheiro})[d.acao]();return}
   if(d.pagarPa){janelaPagarAdmissao(tes().admissoes.find(a=>a.id===d.pagarPa));return}
   if(d.papel){const f=tes().faturas.find(x=>x.id===d.papel);f.papel={data:iso(HOJE)};guardar();desenhar();toast("Fatura marcada como entregue em papel");return}
   if(b.id==="novaAtiv"){tes().orcamento.push({id:"o"+Date.now(),atividade:"",grupo:"",valor:null});guardar();desenhar();const ins=document.querySelectorAll('[data-campo="atividade"]');ins[ins.length-1]?.focus();return}
